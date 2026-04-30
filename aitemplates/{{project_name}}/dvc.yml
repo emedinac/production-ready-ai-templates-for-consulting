@@ -1,6 +1,6 @@
 stages:
   train:
-    cmd: poetry run python src/train.py
+    cmd: poetry run python -m src.train
     deps:
       - src/train.py
       - configs/schema.py

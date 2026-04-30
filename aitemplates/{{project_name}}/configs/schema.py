@@ -1,37 +1,43 @@
-from pydantic import BaseModel, field_validator, model_validator
-from typing import Literal, Optional, List
+from pathlib import Path
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
-class ExperimentConfig(BaseModel):
-    name: str
-    seed: int
-    tags: List[str]
+class StrictConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
 
 
-class TaskConfig(BaseModel):
+class ExperimentConfig(StrictConfig):
+    name: str = Field(min_length=1)
+    seed: int = Field(ge=0)
+    tags: list[str] = Field(default_factory=list)
+
+
+class TaskConfig(StrictConfig):
     type: Literal["text_classification", "tabular_regression"]
     problem_type: Literal["binary", "multiclass", "regression"]
 
 
-class HuggingFaceSource(BaseModel):
-    name: str
-    version: Optional[str]
+class HuggingFaceSource(StrictConfig):
+    name: str = Field(min_length=1)
+    version: str | None = None
 
 
-class LocalSource(BaseModel):
-    path: Optional[str]
+class LocalSource(StrictConfig):
+    path: str | None = None
 
 
-class S3Source(BaseModel):
-    bucket: Optional[str]
-    key: Optional[str]
+class S3Source(StrictConfig):
+    bucket: str | None = None
+    key: str | None = None
 
 
-class DataSource(BaseModel):
+class DataSource(StrictConfig):
     type: Literal["huggingface", "local", "s3"]
-    huggingface: Optional[HuggingFaceSource]
-    local: Optional[LocalSource]
-    s3: Optional[S3Source]
+    huggingface: HuggingFaceSource | None = None
+    local: LocalSource | None = None
+    s3: S3Source | None = None
 
     @model_validator(mode="after")
     def validate_source(self):
@@ -44,43 +50,60 @@ class DataSource(BaseModel):
         return self
 
 
-class SplitConfig(BaseModel):
-    train: float
-    validation: float
-    test: float
+class SplitConfig(StrictConfig):
+    train: float = Field(gt=0, lt=1)
+    validation: float = Field(gt=0, lt=1)
+    test: float = Field(gt=0, lt=1)
 
     @field_validator("test")
-    def check_sum(cls, v, info):
-        total = v + info.data["train"] + info.data["validation"]
+    @classmethod
+    def check_sum(cls, v: float, info):
+        total = v + info.data.get("train", 0) + info.data.get("validation", 0)
         if abs(total - 1.0) > 1e-6:
             raise ValueError("splits must sum to 1.0")
         return v
 
 
-class DataConfig(BaseModel):
+class TextPreprocessingConfig(StrictConfig):
+    lowercase: bool
+    max_length: int = Field(ge=1)
+
+
+class TabularPreprocessingConfig(StrictConfig):
+    normalize: bool
+    handle_missing: Literal["mean", "median", "mode", "drop"]
+
+
+class PreprocessingConfig(StrictConfig):
+    text: TextPreprocessingConfig | None = None
+    tabular: TabularPreprocessingConfig | None = None
+
+
+class DataConfig(StrictConfig):
     source: DataSource
     split: SplitConfig
+    preprocessing: PreprocessingConfig | None = None
 
 
-class TransformerConfig(BaseModel):
-    name: str
-    dropout: float
+class TransformerConfig(StrictConfig):
+    name: str = Field(min_length=1)
+    dropout: float = Field(ge=0, lt=1)
 
 
-class XGBoostConfig(BaseModel):
-    max_depth: int
-    n_estimators: int
+class XGBoostConfig(StrictConfig):
+    max_depth: int = Field(ge=1)
+    n_estimators: int = Field(ge=1)
 
 
-class LinearConfig(BaseModel):
+class LinearConfig(StrictConfig):
     fit_intercept: bool
 
 
-class ModelConfig(BaseModel):
+class ModelConfig(StrictConfig):
     type: Literal["transformer", "xgboost", "linear"]
-    transformer: Optional[TransformerConfig]
-    xgboost: Optional[XGBoostConfig]
-    linear: Optional[LinearConfig]
+    transformer: TransformerConfig | None = None
+    xgboost: XGBoostConfig | None = None
+    linear: LinearConfig | None = None
 
     @model_validator(mode="after")
     def validate_model(self):
@@ -93,50 +116,62 @@ class ModelConfig(BaseModel):
         return self
 
 
-class SchedulerConfig(BaseModel):
+class SchedulerConfig(StrictConfig):
     type: Literal["linear", "none"]
-    warmup_steps: Optional[int]
+    warmup_steps: int | None = None
+
+    @model_validator(mode="after")
+    def validate_scheduler(self):
+        if self.type == "linear" and self.warmup_steps is None:
+            raise ValueError("warmup_steps required for linear scheduler")
+        return self
 
 
-class TrainingConfig(BaseModel):
-    epochs: int
-    batch_size: int
-    learning_rate: float
-    optimizer: str
+class TrainingConfig(StrictConfig):
+    epochs: int = Field(ge=1)
+    batch_size: int = Field(ge=1)
+    learning_rate: float = Field(gt=0)
+    optimizer: str = Field(min_length=1)
     scheduler: SchedulerConfig
 
 
-class ValidationConfig(BaseModel):
+class ValidationConfig(StrictConfig):
     type: Literal["holdout", "kfold"]
-    folds: Optional[int]
+    folds: int | None = None
+
+    @model_validator(mode="after")
+    def validate_folds(self):
+        if self.type == "kfold" and (self.folds is None or self.folds < 2):
+            raise ValueError("folds must be at least 2 for kfold validation")
+        return self
 
 
-class EvaluationConfig(BaseModel):
-    metrics: List[str]
+class EvaluationConfig(StrictConfig):
+    metrics: list[str] = Field(min_length=1)
     validation: ValidationConfig
 
 
-class RuntimeConfig(BaseModel):
+class RuntimeConfig(StrictConfig):
     device: Literal["auto", "cpu", "cuda"]
-    num_workers: int
+    num_workers: int = Field(ge=0)
 
 
-class MLflowConfig(BaseModel):
+class MLflowConfig(StrictConfig):
     enabled: bool
-    experiment_name: str
+    experiment_name: str = Field(min_length=1)
 
 
-class TrackingConfig(BaseModel):
+class TrackingConfig(StrictConfig):
     mlflow: MLflowConfig
 
 
-class OutputConfig(BaseModel):
-    model_path: str
-    metrics_path: str
-    logs_path: str
+class OutputConfig(StrictConfig):
+    model_path: Path
+    metrics_path: Path
+    logs_path: Path
 
 
-class FullConfig(BaseModel):
+class FullConfig(StrictConfig):
     experiment: ExperimentConfig
     task: TaskConfig
     data: DataConfig

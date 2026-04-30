@@ -1,6 +1,5 @@
-from pydantic import BaseModel
-from typing import List
+from pydantic import BaseModel, Field
 
 
 class PredictRequest(BaseModel):
-    texts: List[str]
+    texts: list[str] = Field(min_length=1)

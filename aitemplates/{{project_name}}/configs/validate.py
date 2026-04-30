@@ -1,7 +1,6 @@
-# configs/validate.py
+from pathlib import Path
 
 import yaml
-from pathlib import Path
 from configs.schema import FullConfig
 
 
@@ -12,13 +11,13 @@ def load_and_validate_config(path: Path = CONFIG_PATH) -> FullConfig:
     if not path.exists():
         raise FileNotFoundError(f"Config file not found: {path}")
 
-    with open(path, "r") as f:
+    with path.open() as f:
         raw_cfg = yaml.safe_load(f)
 
-    # This is the critical line: validation happens here
-    config = FullConfig(**raw_cfg)
+    if not isinstance(raw_cfg, dict):
+        raise ValueError(f"Config file must contain a YAML mapping: {path}")
 
-    return config
+    return FullConfig.model_validate(raw_cfg)
 
 
 if __name__ == "__main__":

@@ -1,22 +1,41 @@
-from configs.validate import load_and_validate_config
 import json
 from pathlib import Path
+
 import mlflow
+import mlflow.pyfunc
+
+from configs.validate import load_and_validate_config
+
+
+class BaselineTextModel(mlflow.pyfunc.PythonModel):
+    def __init__(self, label: int = 1):
+        self.label = label
+
+    def predict(self, context, model_input):
+        return [self.label for _ in model_input]
+
+
+def write_json(path: Path, data: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_suffix(f"{path.suffix}.tmp")
+    with tmp_path.open("w") as f:
+        json.dump(data, f, indent=2, sort_keys=True)
+        f.write("\n")
+    tmp_path.replace(path)
 
 
 def train(cfg):
-    # fake model + metrics (replace with real training later)
-    model = {"type": cfg.model.type}
+    # Baseline model + metrics. Replace this block with real training.
+    model = BaselineTextModel()
 
     metrics = {"accuracy": 0.91, "f1": 0.89}
 
-    # save artifacts
-    Path("models").mkdir(exist_ok=True)
-    with open("models/model.pkl", "w") as f:
-        f.write(str(model))
+    model_path = Path(cfg.output.model_path)
+    metrics_path = Path(cfg.output.metrics_path)
 
-    with open("metrics.json", "w") as f:
-        json.dump(metrics, f)
+    model_path.parent.mkdir(parents=True, exist_ok=True)
+    model_path.write_text(f"baseline model type={cfg.model.type}\n")
+    write_json(metrics_path, metrics)
 
     return model, metrics
 
@@ -30,22 +49,21 @@ def main():
     mlflow.set_experiment(cfg.tracking.mlflow.experiment_name)
 
     with mlflow.start_run():
-        # log config (important for reproducibility)
-        mlflow.log_params({
-            "model_type": cfg.model.type,
-            "dataset": cfg.data.source.type,
-            "task": cfg.task.type,
-            "seed": cfg.experiment.seed,
-        })
+        mlflow.log_params(
+            {
+                "model_type": cfg.model.type,
+                "dataset": cfg.data.source.type,
+                "task": cfg.task.type,
+                "seed": cfg.experiment.seed,
+            }
+        )
 
         model, metrics = train(cfg)
 
-        # log metrics
         mlflow.log_metrics(metrics)
-
-        # log artifacts
-        mlflow.log_artifact("metrics.json")
-        mlflow.log_artifact("models/model.pkl")
+        mlflow.log_artifact(str(cfg.output.metrics_path))
+        mlflow.log_artifact(str(cfg.output.model_path))
+        mlflow.pyfunc.log_model(artifact_path="model", python_model=model)
 
         print("Run logged to MLflow")
 

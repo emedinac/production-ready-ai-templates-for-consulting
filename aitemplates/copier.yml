@@ -58,7 +58,7 @@ include_dvc:
 # Hooks (safe execution)
 post_copy_hooks:
   - command: "poetry install"
-    cwd: "{{ _copier_conf.dst_path }}"
+    cwd: "{{ _copier_conf.dst_path }}/{{ project_name }}"
 
-  - command: "poetry run python configs/validate.py"
-    cwd: "{{ _copier_conf.dst_path }}"
+  - command: "poetry run python -m configs.validate"
+    cwd: "{{ _copier_conf.dst_path }}/{{ project_name }}"
