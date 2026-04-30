@@ -1,0 +1,12 @@
+stages:
+  train:
+    cmd: poetry run python src/train.py
+    deps:
+      - src/train.py
+      - configs/schema.py
+      - configs/validate.py
+      - params.yaml
+    outs:
+      - models/model.pkl
+    metrics:
+      - metrics.json
