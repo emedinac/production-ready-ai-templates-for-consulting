@@ -1,0 +1,64 @@
+_min_copier_version: "9.0"
+
+_subdirectory: "."
+
+answers_file: .copier-answers.yml
+
+_jinja_extensions:
+  - jinja2_time.TimeExtension
+
+# User Inputs
+project_name:
+  type: str
+  help: Project name (snake_case, folder name)
+  default: ml_production_project
+
+author:
+  type: str
+  help: Author name
+  default: Your Name
+
+description:
+  type: str
+  help: Short project description
+  default: Production ML pipeline
+
+use_case:
+  type: str
+  choices:
+    - text_classification
+    - tabular_regression
+  default: text_classification
+
+python_version:
+  type: str
+  choices:
+    - "3.12"
+    - "3.13"
+    - "3.14"
+  default: "3.14"
+
+# Feature toggles
+include_mlflow:
+  type: bool
+  default: true
+
+include_monitoring:
+  type: bool
+  default: true
+
+include_docker:
+  type: bool
+  default: true
+
+include_dvc:
+  type: bool
+  default: true
+
+# Hooks (safe execution)
+post_copy_hooks:
+  - command: "poetry install"
+    cwd: "{{ _copier_conf.dst_path }}/{{ project_name }}"
+
+  - command: "poetry run python -m configs.validate"
+    cwd: "{{ _copier_conf.dst_path }}/{{ project_name }}"
