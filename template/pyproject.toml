@@ -1,12 +1,12 @@
 [project]
-name = "{{ project_name }}"
+name = "CHANGE_ME"
 version = "0.1.0"
 description = ""
 authors = [
     {name = "emedinac",email = "edgarmedina1801@gmail.com"}
 ]
 readme = "README.md"
-packages = [{include = "{{ project_name }}"}]
+packages = [{include = "CHANGE_ME"}]
 requires-python = ">=3.14"
 dependencies = [
     "mlflow (>=3.11.1,<4.0.0)",

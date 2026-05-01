@@ -36,6 +36,9 @@ use_promotion:
     help: Add model promotion gates?
     default: true
 
+_tasks:
+    - "bash scripts/setup.sh {{ project_name }}"
+
 _exclude:
     - "{% if not use_dvc %}dvc.yaml{% endif %}"
     - "{% if not use_mlflow %}infra/mlflow{% endif %}"
