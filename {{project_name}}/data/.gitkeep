@@ -1,0 +1,5 @@
+# Data directories
+# These directories are managed by DVC - do not commit raw data
+raw/
+processed/
+external/
