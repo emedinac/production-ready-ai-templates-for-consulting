@@ -1,0 +1,42 @@
+project_name:
+    type: str
+    help: Project name
+    default: my_ai_project
+
+use_dvc:
+    type: bool
+    help: Use DVC for pipeline and data versioning?
+    default: true
+
+use_mlflow:
+    type: bool
+    help: Use MLflow for experiment tracking?
+    default: true
+
+use_monitoring:
+    type: bool
+    help: Add Prometheus + Grafana monitoring?
+    default: true
+
+use_fastapi:
+    type: bool
+    help: Add FastAPI serving layer?
+    default: true
+
+use_agents:
+    type: bool
+    help: Add agentic eval loop?
+    default: false
+
+use_promotion:
+    type: bool
+    help: Add model promotion gates?
+    default: true
+
+_exclude:
+    - "{% if not use_dvc %}dvc.yaml{% endif %}"
+    - "{% if not use_mlflow %}infra/mlflow{% endif %}"
+    - "{% if not use_monitoring %}infra/monitoring{% endif %}"
+    - "{% if not use_fastapi %}{{project_name}}/serving{% endif %}"
+    - "{% if not use_agents %}agents{% endif %}"
+    - "{% if not use_promotion %}promotion{% endif %}"
