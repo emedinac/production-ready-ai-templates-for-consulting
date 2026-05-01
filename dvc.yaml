@@ -1,0 +1,16 @@
+stages:
+  preprocess:
+    cmd: poetry run python -m {{project_name}}.src.data.preprocess
+    deps: [{{project_name}}/src/data/preprocess.py, params.yaml]
+    outs: [{{project_name}}/data/processed]
+
+  train:
+    cmd: poetry run python -m {{project_name}}.src.models.train
+    deps: [{{project_name}}/src/models/train.py, {{project_name}}/data/processed, params.yaml]
+    outs: [{{project_name}}/models/artifacts]
+    metrics: [{{project_name}}/models/metrics.json]
+
+  evaluate:
+    cmd: poetry run python -m {{project_name}}.evaluation.metrics
+    deps: [{{project_name}}/evaluation/metrics.py, {{project_name}}/models/artifacts]
+    metrics: [results/eval_metrics.json]
