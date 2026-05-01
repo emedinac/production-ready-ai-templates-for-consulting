@@ -15,7 +15,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="{{ project_name }} model service", lifespan=lifespan)
+app = FastAPI(title="CHANGE_ME model service", lifespan=lifespan)
 
 
 @app.get("/health")

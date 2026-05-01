@@ -1,7 +1,8 @@
 import yaml
 from pathlib import Path
-from configs.schema import Config
+from CHANGE_ME.configs.schema import FullConfig
 
-def load_config(path: str = "params.yaml") -> Config:
+
+def load_config(path: str = "params.yaml") -> FullConfig:
     raw = yaml.safe_load(Path(path).read_text())
-    return Config(**raw)
+    return FullConfig(**raw)
