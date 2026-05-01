@@ -1,3 +1,0 @@
-# Trained models directory
-# Models are tracked by DVC - do not commit model files
-artifacts/
