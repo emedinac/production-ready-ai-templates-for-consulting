@@ -1,0 +1,19 @@
+services:
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.13.0
+    ports: ["5000:5000"]
+    volumes: ["./mlruns:/mlruns"]
+    command: mlflow server --host 0.0.0.0 --backend-store-uri sqlite:///mlruns/mlflow.db
+
+  prometheus:
+    image: prom/prometheus:v2.52.0
+    ports: ["9090:9090"]
+    volumes: ["./infra/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml"]
+
+  grafana:
+    image: grafana/grafana:10.4.2
+    ports: ["3000:3000"]
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes: ["./infra/monitoring/grafana_dashboards:/etc/grafana/provisioning/dashboards"]
+    depends_on: [prometheus]
