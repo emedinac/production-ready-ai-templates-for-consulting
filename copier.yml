@@ -1,4 +1,5 @@
 _subdirectory: template
+_templates_suffix: ""
 
 project_name:
     type: str

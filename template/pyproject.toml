@@ -1,11 +1,12 @@
 [project]
-name = "aitemplates"
+name = "{{ project_name }}"
 version = "0.1.0"
 description = ""
 authors = [
     {name = "emedinac",email = "edgarmedina1801@gmail.com"}
 ]
 readme = "README.md"
+packages = [{include = "{{ project_name }}"}]
 requires-python = ">=3.14"
 dependencies = [
     "mlflow (>=3.11.1,<4.0.0)",
