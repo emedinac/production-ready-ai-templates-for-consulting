@@ -1,0 +1,8 @@
+# Logging configuration
+logging:
+  level: INFO
+  format: json
+  outputs:
+    - type: stdout
+    - type: file
+      path: logs/app.log

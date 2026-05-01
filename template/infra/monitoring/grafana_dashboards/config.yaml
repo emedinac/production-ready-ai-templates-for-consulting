@@ -1,0 +1,5 @@
+# Grafana dashboards configuration
+dashboards:
+  - name: ml_pipeline
+    files:
+      - dashboard.json
