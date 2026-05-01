@@ -1,3 +1,5 @@
+_subdirectory: template
+
 project_name:
     type: str
     help: Project name
