@@ -2,7 +2,7 @@
 
 import pytest
 import time
-from src.models.inference import predict
+from CHANGE_ME.src.models.inference import predict
 
 
 def test_latency():
