@@ -1,16 +1,36 @@
 stages:
   preprocess:
     cmd: poetry run python -m {{project_name}}.src.data.preprocess
-    deps: [{{project_name}}/src/data/preprocess.py, params.yaml]
-    outs: [{{project_name}}/data/processed]
-
+    deps:
+      - {{project_name}}/src/data/preprocess.py
+      - params.yaml
+      - {{project_name}}/data/raw  # Track raw data
+    outs:
+      - {{project_name}}/data/processed
+    metrics:
+      - {{project_name}}/data/preprocess_metrics.json
+    
   train:
     cmd: poetry run python -m {{project_name}}.src.models.train
-    deps: [{{project_name}}/src/models/train.py, {{project_name}}/data/processed, params.yaml]
-    outs: [{{project_name}}/models/artifacts]
-    metrics: [{{project_name}}/models/metrics.json]
-
+    deps:
+      - {{project_name}}/src/models/train.py
+      - {{project_name}}/data/processed
+      - params.yaml
+    outs:
+      - {{project_name}}/models/artifacts
+      - {{project_name}}/models/checkpoints
+    metrics:
+      - {{project_name}}/models/metrics.json
+    plots:
+      - {{project_name}}/models/plots
+    
   evaluate:
     cmd: poetry run python -m {{project_name}}.evaluation.metrics
-    deps: [{{project_name}}/evaluation/metrics.py, {{project_name}}/models/artifacts]
-    metrics: [results/eval_metrics.json]
+    deps:
+      - {{project_name}}/evaluation/metrics.py
+      - {{project_name}}/models/artifacts
+      - {{project_name}}/data/processed
+    metrics:
+      - results/eval_metrics.json
+    plots:
+      - results/eval_plots
