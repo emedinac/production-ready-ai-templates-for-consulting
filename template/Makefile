@@ -1,8 +1,13 @@
 .PHONY: setup validate-config test pipeline train serve promote clean all
 
+init:
+	poetry run dvc init
+
 setup:
 	poetry install
-	docker-compose up -d
+	git init || true
+	poetry run dvc init -q || true
+	docker compose up -d
 
 validate-config:
 	poetry run python -m {{project_name}}.configs.validate
