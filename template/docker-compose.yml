@@ -1,10 +1,31 @@
 services:
   mlflow:
     image: ghcr.io/mlflow/mlflow:v2.13.0
-    ports: ["5000:5000"]
-    volumes: ["./mlruns:/mlruns"]
-    command: mlflow server --host 0.0.0.0 --backend-store-uri sqlite:///mlruns/mlflow.db
+    environment:
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+    volumes:
+      - mlflow-db:/mlflow-db
+    command: mlflow server --host 0.0.0.0 --backend-store-uri postgresql://mlflow:password@db/mlflow
 
+  api:
+    build: .
+    environment:
+      - MODEL_VERSION=latest
+      - DVC_REMOTE=models
+    ports:
+      - "8000:8000"
+    depends_on:
+      - mlflow
+
+  db:
+    image: postgres:13
+    environment:
+      - POSTGRES_DB=mlflow
+      - POSTGRES_USER=mlflow
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
   prometheus:
     image: prom/prometheus:v2.52.0
     ports: ["9090:9090"]
