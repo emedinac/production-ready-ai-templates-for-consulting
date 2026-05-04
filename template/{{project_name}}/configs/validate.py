@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import yaml
-from configs.schema import FullConfig
+from CHANGE_ME.configs.schema import FullConfig
 
 
 CONFIG_PATH = Path("params.yaml")
