@@ -1,7 +1,7 @@
 """Test training."""
 
 import pytest
-from src.models.train import train
+from CHANGE_ME.src.models.train import train
 
 
 def test_train():

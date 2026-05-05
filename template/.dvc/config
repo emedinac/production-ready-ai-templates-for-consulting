@@ -1,0 +1,8 @@
+# DVC configuration file
+# Configure remotes during setup-prod:
+#   - S3:        make init-prod-s3
+#   - PostgreSQL: make init-prod-postgres
+# Or manually: dvc remote add -d storage <url>
+
+[core]
+analytics = false

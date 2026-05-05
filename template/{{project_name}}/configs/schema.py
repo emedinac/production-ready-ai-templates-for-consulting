@@ -83,6 +83,7 @@ class DataConfig(StrictConfig):
     source: DataSource
     split: SplitConfig
     preprocessing: PreprocessingConfig | None = None
+    processed_dir: str = "{{project_name}}/data/processed"
 
 
 class TransformerConfig(StrictConfig):
@@ -165,6 +166,10 @@ class TrackingConfig(StrictConfig):
     mlflow: MLflowConfig
 
 
+class ArtifactsConfig(StrictConfig):
+    metrics_dir: str = "metrics"
+
+
 class OutputConfig(StrictConfig):
     model_path: Path
     metrics_path: Path
@@ -180,6 +185,7 @@ class FullConfig(StrictConfig):
     evaluation: EvaluationConfig
     runtime: RuntimeConfig
     tracking: TrackingConfig
+    artifacts: ArtifactsConfig
     output: OutputConfig
 
     @model_validator(mode="after")

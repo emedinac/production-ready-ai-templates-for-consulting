@@ -11,6 +11,16 @@ use_dvc:
     help: Use DVC for pipeline and data versioning?
     default: true
 
+dvc_storage_backend:
+    type: str
+    help: DVC storage backend
+    default: local
+    choices:
+        - local
+        - s3
+        - gcs
+        - azure
+
 use_mlflow:
     type: bool
     help: Use MLflow for experiment tracking?
@@ -39,10 +49,22 @@ use_promotion:
 _tasks:
     - "bash scripts/setup.sh {{ project_name }}"
 
+    - >-
+      {% if use_dvc %} echo "DVC enabled with {{ dvc_storage_backend }} backend"
+      {% endif %}
+
+    - >-
+      {% if use_dvc and dvc_storage_backend == 'local' %} echo "Local DVC
+      storage selected (no external init required)" {% endif %}
+
 _exclude:
     - "{% if not use_dvc %}dvc.yaml{% endif %}"
+    - "{% if not use_dvc %}.dvcignore{% endif %}"
+    - "{% if not use_dvc %}.github/workflows/dvc-pipeline.yml{% endif %}"
+    - "{% if not use_dvc %}docker-compose.prod.yml{% endif %}"
+
     - "{% if not use_mlflow %}infra/mlflow{% endif %}"
     - "{% if not use_monitoring %}infra/monitoring{% endif %}"
-    - "{% if not use_fastapi %}{{project_name}}/serving{% endif %}"
+    - "{% if not use_fastapi %}{{ project_name }}/serving{% endif %}"
     - "{% if not use_agents %}agents{% endif %}"
     - "{% if not use_promotion %}promotion{% endif %}"
