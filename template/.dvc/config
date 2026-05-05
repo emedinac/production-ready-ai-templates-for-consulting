@@ -4,4 +4,5 @@
 #   - PostgreSQL: make init-prod-postgres
 # Or manually: dvc remote add -d storage <url>
 
-null
+[core]
+analytics = false

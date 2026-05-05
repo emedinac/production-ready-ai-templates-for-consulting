@@ -181,7 +181,10 @@ def validate_pipeline() -> List[str]:
             # Check if dependencies exist
             deps = stage_config.get("deps", [])
             for dep in deps:
-                if not Path(dep).exists() and not dep.startswith("{{"):
+                # Skip template variables
+                dep_str = str(dep)
+                is_template_var = "{" in dep_str or "$" in dep_str
+                if not Path(dep).exists() and not is_template_var:
                     errors.append(
                         f"Dependency '{dep}' not found for stage '{stage_name}'"
                     )

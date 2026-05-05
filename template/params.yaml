@@ -36,6 +36,8 @@ data:
       normalize: true
       handle_missing: "mean"
 
+  processed_dir: "{{project_name}}/data/processed"
+
 model:
   type: "transformer" # transformer | xgboost | linear
 
@@ -75,6 +77,9 @@ tracking:
   mlflow:
     enabled: true
     experiment_name: "default"
+
+artifacts:
+  metrics_dir: "metrics"
 
 output:
   model_path: "models/model.pkl"
