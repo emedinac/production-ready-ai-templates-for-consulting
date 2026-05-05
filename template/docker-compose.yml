@@ -38,3 +38,8 @@ services:
       GF_SECURITY_ADMIN_PASSWORD: admin
     volumes: ["./infra/monitoring/grafana_dashboards:/etc/grafana/provisioning/dashboards"]
     depends_on: [prometheus]
+
+volumes:
+  mlflow-db:
+  postgres-data:
+  grafana-data:
