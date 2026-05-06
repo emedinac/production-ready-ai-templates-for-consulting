@@ -56,6 +56,10 @@ def preprocess() -> Path:
     train_df = df[:train_end]
     val_df = df[train_end:val_end]
     test_df = df[val_end:]
+    print(f"Total samples: {total_samples}")
+    print(f"Train samples: {len(train_df)}")
+    print(f"Validation samples: {len(val_df)}")
+    print(f"Test samples: {len(test_df)}")
 
     # SAVE SPLITS
     train_df.to_csv(output_dir / "train.csv", index=False)
