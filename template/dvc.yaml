@@ -17,7 +17,6 @@ stages:
       - params.yaml
     outs:
       - {{project_name}}/models/artifacts
-      - {{project_name}}/models/checkpoints
     metrics:
       - {{project_name}}/models/metrics.json
 
