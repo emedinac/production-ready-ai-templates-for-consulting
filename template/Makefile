@@ -5,7 +5,7 @@ init:
 	poetry run dvc init
 
 setup:
-	poetry install
+	poetry install --with dev
 	git init || true
 	poetry run dvc init -q || true
 	docker compose up -d

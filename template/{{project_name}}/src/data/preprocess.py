@@ -12,9 +12,18 @@ from ...configs.loader import load_config
 def preprocess() -> Path:
     config = load_config()
 
-    # CONFIG DRIVEN PATH (not hardcoded)
-    output_dir = Path(config.data.processed_dir)
+    # ---- COMPUTE PROJECT ROOT ----
+    project_root = Path(__file__).resolve().parents[2]
+
+    # ---- DVC-SAFE OUTPUT PATHS (hardcoded, not config-driven) ----
+    output_dir = project_root / "data/processed"
     output_dir.mkdir(parents=True, exist_ok=True)
+
+    metrics_dir = project_root / "metrics"
+    metrics_dir.mkdir(parents=True, exist_ok=True)
+
+    artifacts_dir = project_root / "artifacts"
+    artifacts_dir.mkdir(parents=True, exist_ok=True)
 
     # ---- LOAD DATA ----
     if config.data.source.type == "huggingface":
@@ -76,9 +85,6 @@ def preprocess() -> Path:
         "test_samples": len(test_df),
         "num_files": len(list(output_dir.glob("*"))),
     }
-
-    metrics_dir = Path(config.artifacts.metrics_dir)
-    metrics_dir.mkdir(parents=True, exist_ok=True)
 
     (metrics_dir / "preprocess.json").write_text(json.dumps(metrics, indent=2))
 

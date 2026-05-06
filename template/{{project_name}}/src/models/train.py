@@ -1,86 +1,43 @@
-"""Model training module."""
-
-import json
 from pathlib import Path
-
-import joblib
-import yaml
+import json
 import pandas as pd
-from sklearn.metrics import accuracy_score, f1_score
-from sklearn.linear_model import LogisticRegression
-from sklearn.feature_extraction.text import TfidfVectorizer
 
 from ...configs.loader import load_config
 
 
-def train() -> Path:
+def train():
     config = load_config()
 
-    processed_dir = Path(config.data.processed_dir)
-    train_file = processed_dir / "train.csv"
+    # ---- PATHS ----
+    project_root = Path(__file__).resolve().parents[2]
 
-    if not train_file.exists():
-        raise FileNotFoundError(
-            f"Processed training data not found: {train_file}. Run preprocess first."
-        )
+    data_dir = project_root / "data/processed"
+    artifacts_dir = project_root / "models/artifacts"
+    checkpoints_dir = project_root / "models/checkpoints"
+    metrics_path = project_root / "models/metrics.json"
 
-    # Load data
-    df = pd.read_csv(train_file)
-
-    if config.task.type == "text_classification":
-        if "text" not in df.columns or "label" not in df.columns:
-            raise ValueError("Expected 'text' and 'label' columns in training data")
-        vectorizer = TfidfVectorizer(max_features=1000)
-        X = vectorizer.fit_transform(df["text"])
-        y = df["label"]
-    else:
-        if "target" not in df.columns:
-            raise ValueError("Expected 'target' column in training data")
-        X = df.drop(columns=["target"])
-        y = df["target"]
-
-    # Model
-    model = LogisticRegression(max_iter=1000)
-    model.fit(X, y)
-
-    preds = model.predict(X)
-
-    metrics = {
-        "accuracy": float(accuracy_score(y, preds)),
-        "f1": float(f1_score(y, preds, average="weighted")),
-    }
-
-    # Save artifacts
-    artifacts_dir = Path(config.output.model_path).parent
     artifacts_dir.mkdir(parents=True, exist_ok=True)
+    checkpoints_dir.mkdir(parents=True, exist_ok=True)
 
-    joblib.dump(model, artifacts_dir / "model.joblib")
-    if config.task.type == "text_classification":
-        joblib.dump(vectorizer, artifacts_dir / "vectorizer.joblib")
+    # ---- LOAD PROCESSED DATA (NOT RAW) ----
+    train_df = pd.read_csv(data_dir / "train.csv")
+    val_df = pd.read_csv(data_dir / "validation.csv")
 
-    model_card = {
-        "model_type": config.model.type,
-        "task": config.task.type,
-        "training": config.training.model_dump(),
-        "features": "text_vectorized"
-        if config.task.type == "text_classification"
-        else list(X.columns),
+    # ---- DUMMY TRAINING (replace later) ----
+    model = {
+        "num_train_samples": len(train_df),
+        "num_val_samples": len(val_df),
     }
 
-    (artifacts_dir / "model.yaml").write_text(
-        yaml.safe_dump(model_card, sort_keys=True)
-    )
+    # ---- SAVE ARTIFACTS ----
+    (artifacts_dir / "model.json").write_text(json.dumps(model, indent=2))
 
-    metrics_path = Path(config.output.metrics_path)
-    metrics_path.parent.mkdir(parents=True, exist_ok=True)
-    metrics_path.write_text(json.dumps(metrics, indent=2) + "\n")
-
-    return artifacts_dir
-
-
-def load_params():
-    with open(Path("params.yaml")) as f:
-        return yaml.safe_load(f)
+    # ---- SAVE METRICS ----
+    metrics = {
+        "train_samples": len(train_df),
+        "val_samples": len(val_df),
+    }
+    metrics_path.write_text(json.dumps(metrics, indent=2))
 
 
 if __name__ == "__main__":
