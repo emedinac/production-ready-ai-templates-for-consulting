@@ -4,12 +4,12 @@ experiment:
   tags: [ "baseline" ]
 
 task:
-  type: "text_classification" # text_classification | tabular_regression
-  problem_type: "binary" # binary | multiclass | regression
+  type: "text_classification"
+  problem_type: "binary"
 
 data:
   source:
-    type: "huggingface" # huggingface | local | s3
+    type: "huggingface"
 
     huggingface:
       name: "imdb"
@@ -39,38 +39,27 @@ data:
   processed_dir: "{{project_name}}/data/processed"
 
 model:
-  type: "transformer" # transformer | xgboost | linear
-
+  type: "transformer"
   transformer:
-    name: "distilbert-base-uncased"
+    name: "bert-base-uncased"
     dropout: 0.1
-
-  xgboost:
-    max_depth: 6
-    n_estimators: 100
-
-  linear:
-    fit_intercept: true
 
 training:
   epochs: 3
   batch_size: 32
   learning_rate: 0.0001
-  optimizer: "adamw"
-
+  optimizer: "adam"
   scheduler:
-    type: "linear" # linear | none
-    warmup_steps: 100
+    type: "linear"
+    warmup_steps: 500
 
 evaluation:
   metrics: [ "accuracy", "f1" ]
-
   validation:
-    type: "holdout" # holdout | kfold
-    folds: null
+    type: "holdout"
 
 runtime:
-  device: "auto" # auto | cpu | cuda
+  device: "auto"
   num_workers: 4
 
 tracking:
@@ -79,9 +68,9 @@ tracking:
     experiment_name: "default"
 
 artifacts:
-  metrics_dir: "metrics"
+  metrics_dir: "{{project_name}}/metrics" # Documentation only - actual paths hardcoded in code
 
 output:
-  model_path: "models/model.pkl"
-  metrics_path: "metrics.json"
-  logs_path: "logs/train.log"
+  model_path: "{{project_name}}/models/model.pkl"
+  metrics_path: "{{project_name}}/metrics/metrics.json"
+  logs_path: "{{project_name}}/logs"

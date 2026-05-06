@@ -1,0 +1,83 @@
+# Complete example configuration with all required fields
+# This file shows the full structure expected by the FullConfig schema
+
+experiment:
+  name: "exp_001"
+  seed: 42
+  tags: [ "baseline" ]
+
+task:
+  type: "text_classification" # or: tabular_regression
+  problem_type: "binary" # or: multiclass, regression
+
+data:
+  source:
+    type: "huggingface" # or: local, s3
+    huggingface:
+      name: "imdb"
+      version: null
+    local:
+      path: null
+    s3:
+      bucket: null
+      key: null
+
+  split:
+    train: 0.8
+    validation: 0.1
+    test: 0.1
+
+  preprocessing:
+    text:
+      lowercase: true
+      max_length: 256
+    tabular:
+      normalize: true
+      handle_missing: "mean" # or: median, mode, drop
+
+  processed_dir: "{{project_name}}/data/processed"
+
+# REQUIRED: model must have type and corresponding config
+model:
+  type: "transformer" # or: xgboost, linear
+  transformer:
+    name: "bert-base-uncased"
+    dropout: 0.1
+  xgboost: null
+  linear: null
+
+# REQUIRED: training must include optimizer and scheduler
+training:
+  epochs: 3
+  batch_size: 32
+  learning_rate: 0.0001
+  optimizer: "adam" # e.g., adam, sgd, adagrad
+  scheduler:
+    type: "linear" # or: none
+    warmup_steps: 500 # required if type is "linear"
+
+# REQUIRED: evaluation must include validation config
+evaluation:
+  metrics: [ "accuracy", "f1" ]
+  validation:
+    type: "holdout" # or: kfold
+    folds: null # required if type is "kfold" (must be >= 2)
+
+runtime:
+  device: "auto" # or: cpu, cuda
+  num_workers: 4
+
+tracking:
+  mlflow:
+    enabled: true
+    experiment_name: "default"
+
+# REQUIRED: artifacts config (documentation only - actual paths hardcoded in code)
+artifacts:
+  metrics_dir: "{{project_name}}/metrics"
+
+# REQUIRED: output config (documentation only - actual paths hardcoded in code)
+output:
+  model_path: "{{project_name}}/models/model.pkl"
+  metrics_path: "{{project_name}}/metrics/metrics.json"
+  logs_path: "{{project_name}}/logs"

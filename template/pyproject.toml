@@ -1,13 +1,13 @@
 [project]
 name = "CHANGE_ME"
-version = "0.1.0"
+version = "0.2.0"
 description = ""
 authors = [
     {name = "emedinac",email = "edgarmedina1801@gmail.com"}
 ]
 readme = "README.md"
 packages = [{include = "CHANGE_ME"}]
-requires-python = ">=3.11,<3.15"
+requires-python = ">=3.11,<3.12"
 dependencies = [
     "mlflow (>=3.11.1,<4.0.0)",
     "pydantic (>=2.13.3,<3.0.0)",
