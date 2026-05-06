@@ -12,10 +12,10 @@ from ...configs.loader import load_config
 def preprocess() -> Path:
     config = load_config()
 
-    # ---- COMPUTE PROJECT ROOT ----
+    # COMPUTE PROJECT ROOT
     project_root = Path(__file__).resolve().parents[2]
 
-    # ---- DVC-SAFE OUTPUT PATHS (hardcoded, not config-driven) ----
+    # DVC-SAFE OUTPUT PATHS (hardcoded, not config-driven)
     output_dir = project_root / "data/processed"
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -25,7 +25,7 @@ def preprocess() -> Path:
     artifacts_dir = project_root / "artifacts"
     artifacts_dir.mkdir(parents=True, exist_ok=True)
 
-    # ---- LOAD DATA ----
+    # LOAD DATA
     if config.data.source.type == "huggingface":
         dataset = load_dataset(
             config.data.source.huggingface.name, config.data.source.huggingface.version
@@ -40,7 +40,7 @@ def preprocess() -> Path:
             f"Source type {config.data.source.type} not implemented"
         )
 
-    # ---- APPLY PREPROCESSING ----
+    # APPLY PREPROCESSING
     if config.data.preprocessing:
         if config.task.type == "text_classification" and config.data.preprocessing.text:
             if config.data.preprocessing.text.lowercase:
@@ -48,7 +48,7 @@ def preprocess() -> Path:
             # Add other text preprocessing
         # Add tabular preprocessing if needed
 
-    # ---- SPLIT DATA ----
+    # SPLIT DATA
     total_samples = len(df)
     train_end = int(total_samples * config.data.split.train)
     val_end = train_end + int(total_samples * config.data.split.validation)
@@ -57,12 +57,12 @@ def preprocess() -> Path:
     val_df = df[train_end:val_end]
     test_df = df[val_end:]
 
-    # ---- SAVE SPLITS ----
+    # SAVE SPLITS
     train_df.to_csv(output_dir / "train.csv", index=False)
     val_df.to_csv(output_dir / "validation.csv", index=False)
     test_df.to_csv(output_dir / "test.csv", index=False)
 
-    # ---- DATA ARTIFACT ----
+    # DATA ARTIFACT
     metadata = {
         "task": config.task.type,
         "problem_type": config.task.problem_type,
@@ -76,7 +76,7 @@ def preprocess() -> Path:
 
     (output_dir / "metadata.yaml").write_text(yaml.safe_dump(metadata, sort_keys=True))
 
-    # ---- OPTIONAL: REAL METRICS ONLY IF COMPUTED ----
+    # OPTIONAL: REAL METRICS ONLY IF COMPUTED
     metrics = {
         "status": "completed",
         "total_samples": total_samples,
