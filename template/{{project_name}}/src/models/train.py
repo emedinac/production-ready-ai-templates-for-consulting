@@ -119,9 +119,37 @@ def train():
     print(json.dumps(artifact, indent=2))
     print("Validation metrics:")
     print(json.dumps(validation_metrics, indent=2))
+    if bundle.type == "transformer":
+        bundle.model.save_pretrained(model_path.parent)
+        if bundle.tokenizer is None:
+            raise ValueError("Transformer tokenizer is missing")
+        bundle.tokenizer.save_pretrained(model_path.parent)
 
-    joblib.dump(bundle.model, model_path)
-    joblib.dump(bundle.model, results_model_dir / model_path.name)
+        artifact_bundle = {
+            "name": config.experiment.name,
+            "config": config.model_dump(),
+            "metrics": validation_metrics,
+        }
+
+        joblib.dump(
+            artifact_bundle,
+            model_path.with_suffix(".meta.pkl"),
+        )
+
+    else:
+        artifact_bundle = {
+            "name": config.experiment.name,
+            "config": config.model_dump(),
+            "model": bundle.model,
+            "preprocessor": feature_transformer,
+            "metrics": validation_metrics,
+        }
+
+    joblib.dump(artifact_bundle, model_path)
+    joblib.dump(
+        artifact_bundle,
+        results_model_dir / model_path.name,
+    )
 
     metrics_path.write_text(json.dumps(metrics, indent=2))
     (results_metrics_dir / metrics_path.name).write_text(json.dumps(metrics, indent=2))

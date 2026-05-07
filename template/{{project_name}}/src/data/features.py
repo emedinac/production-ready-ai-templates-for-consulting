@@ -33,7 +33,12 @@ def prepare_text_classification_data(
         )
         val_df["text"] = val_df["text"].astype(str).str.slice(0, text_cfg.max_length)
 
-    vectorizer = TfidfVectorizer(max_features=10_000, max_df=0.95)
+    vectorizer = TfidfVectorizer(
+        max_features=50000,
+        ngram_range=(1, 2),
+        stop_words="english",
+        sublinear_tf=True,
+    )
     X_train = vectorizer.fit_transform(train_df["text"].astype(str))
     X_val = vectorizer.transform(val_df["text"].astype(str))
 
