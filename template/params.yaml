@@ -4,8 +4,8 @@ experiment:
   tags: [ "baseline" ]
 
 task:
-  type: "text_classification"
-  problem_type: "binary"
+  type: text_classification
+  problem_type: binary
 
 data:
   source:
@@ -39,10 +39,15 @@ data:
   processed_dir: "{{project_name}}/data/processed"
 
 model:
-  type: "transformer"
-  transformer:
-    name: "bert-base-uncased"
-    dropout: 0.1
+  type: "linear" # Options: "transformer", "xgboost", "linear"
+  # transformer:
+  #   # Parameters specific to transformer models
+  #   name: "bert-base-uncased"
+  #   dropout: 0.1
+  linear:
+    # optional hyperparameters (only if you want to extend later)
+    solver: "lbfgs"
+    max_iter: 500
 
 training:
   epochs: 3

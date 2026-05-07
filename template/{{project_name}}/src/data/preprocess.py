@@ -5,6 +5,7 @@ import json
 import yaml
 import pandas as pd
 from datasets import load_dataset
+from sklearn.model_selection import train_test_split
 
 from ...configs.loader import load_config
 
@@ -70,18 +71,35 @@ def preprocess() -> Path:
             df = _fill_missing(df, config.data.preprocessing.tabular.handle_missing)
 
     # SPLIT DATA
-    total_samples = len(df)
-    train_end = int(total_samples * config.data.split.train)
-    val_end = train_end + int(total_samples * config.data.split.validation)
+    train_ratio = config.data.split.train
+    val_ratio = config.data.split.validation
+    test_ratio = config.data.split.test
 
-    train_df = df[:train_end]
-    val_df = df[train_end:val_end]
-    test_df = df[val_end:]
+    temp_ratio = val_ratio + test_ratio
+
+    train_df, temp_df = train_test_split(
+        df,
+        test_size=temp_ratio,
+        stratify=df["label"],
+        random_state=config.experiment.seed,
+        shuffle=True,
+    )
+
+    relative_test_ratio = test_ratio / temp_ratio
+
+    val_df, test_df = train_test_split(
+        temp_df,
+        test_size=relative_test_ratio,
+        stratify=temp_df["label"],
+        random_state=config.experiment.seed,
+        shuffle=True,
+    )
+    total_samples = len(df)
 
     print(f"Total samples: {total_samples}")
-    print(f"Train samples: {len(train_df)}")
-    print(f"Validation samples: {len(val_df)}")
-    print(f"Test samples: {len(test_df)}")
+    print(f"Train samples: {train_df['label'].value_counts()}")
+    print(f"Validation samples: {val_df['label'].value_counts()}")
+    print(f"Test samples: {test_df['label'].value_counts()}")
 
     # SAVE SPLITS
     train_df.to_csv(output_dir / "train.csv", index=False)

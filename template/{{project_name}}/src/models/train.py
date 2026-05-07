@@ -10,7 +10,9 @@ from ...src.data.features import (
     prepare_text_classification_data,
     prepare_tabular_data,
 )
-from .train_utils import build_model
+from .train_utils import build_model, train_transformer
+from collections import Counter
+from sklearn.metrics import confusion_matrix, classification_report
 
 
 def _resolve_path(project_root: Path, path_str: str) -> Path:
@@ -61,11 +63,26 @@ def train():
             train_df, val_df, config
         )
 
-    model = build_model(config)
-    model.fit(X_train, y_train)
+    bundle = build_model(config)
 
-    y_pred = model.predict(X_val)
+    if bundle.type == "transformer":
+        bundle.model = train_transformer(bundle, train_df, val_df, config)
+    else:
+        bundle.model.fit(X_train, y_train)
+
+    # prediction MUST use bundle.model
+    y_pred = bundle.model.predict(X_val)
     validation_metrics = compute_metrics(config, y_val, y_pred)
+
+    print("\n=== Data Distribution ===")
+    print("Train distribution:", dict(Counter(y_train)))
+    print("Validation distribution:", dict(Counter(y_val)))
+    print("Predictions distribution:", dict(Counter(y_pred)))
+    print("\nConfusion Matrix:")
+    print(confusion_matrix(y_val, y_pred))
+    print("\nClassification Report:")
+    print(classification_report(y_val, y_pred))
+    print("=== End Diagnostics ===")
 
     metrics = {
         "train_samples": len(train_df),
@@ -82,7 +99,11 @@ def train():
     }
 
     artifact = {
-        "model_type": config.model.type,
+        "config_model_type": config.model.type,
+        "trained_model_class": type(bundle.model).__name__,
+        "feature_preprocessor": type(feature_transformer).__name__
+        if feature_transformer
+        else None,
         "task": config.task.type,
         "problem_type": config.task.problem_type,
         "train_samples": len(train_df),
@@ -94,16 +115,13 @@ def train():
         },
     }
 
-    if feature_transformer is not None:
-        artifact["feature_transformer"] = type(feature_transformer).__name__
-
     print("Training complete. Model artifact summary:")
     print(json.dumps(artifact, indent=2))
     print("Validation metrics:")
     print(json.dumps(validation_metrics, indent=2))
 
-    joblib.dump(model, model_path)
-    joblib.dump(model, results_model_dir / model_path.name)
+    joblib.dump(bundle.model, model_path)
+    joblib.dump(bundle.model, results_model_dir / model_path.name)
 
     metrics_path.write_text(json.dumps(metrics, indent=2))
     (results_metrics_dir / metrics_path.name).write_text(json.dumps(metrics, indent=2))
