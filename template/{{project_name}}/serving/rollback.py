@@ -1,13 +1,13 @@
 from mlflow.tracking import MlflowClient
 
+from mlflow.tracking import MlflowClient
+
 
 def rollback_to_previous(model_name: str):
     client = MlflowClient()
 
-    versions = client.search_model_versions(f"name='{model_name}'")
-
     prod_versions = sorted(
-        (v for v in versions if v.current_stage == "Production"),
+        client.get_latest_versions(model_name, stages=["Production"]),
         key=lambda v: int(v.version),
         reverse=True,
     )
@@ -19,11 +19,15 @@ def rollback_to_previous(model_name: str):
     previous = prod_versions[1]
 
     client.transition_model_version_stage(
-        name=model_name, version=current.version, stage="Archived"
+        name=model_name,
+        version=current.version,
+        stage="Archived",
     )
 
     client.transition_model_version_stage(
-        name=model_name, version=previous.version, stage="Production"
+        name=model_name,
+        version=previous.version,
+        stage="Production",
     )
 
-    print(f"Rolled back {model_name} to version {previous.version}")
+    print(f"Rolled back {model_name}: {current.version} → {previous.version}")

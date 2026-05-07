@@ -119,31 +119,18 @@ def train():
     print(json.dumps(artifact, indent=2))
     print("Validation metrics:")
     print(json.dumps(validation_metrics, indent=2))
-    if bundle.type == "transformer":
-        bundle.model.save_pretrained(model_path.parent)
-        if bundle.tokenizer is None:
-            raise ValueError("Transformer tokenizer is missing")
-        bundle.tokenizer.save_pretrained(model_path.parent)
 
-        artifact_bundle = {
-            "name": config.experiment.name,
-            "config": config.model_dump(),
-            "metrics": validation_metrics,
-        }
-
-        joblib.dump(
-            artifact_bundle,
-            model_path.with_suffix(".meta.pkl"),
-        )
-
-    else:
-        artifact_bundle = {
-            "name": config.experiment.name,
-            "config": config.model_dump(),
-            "model": bundle.model,
-            "preprocessor": feature_transformer,
-            "metrics": validation_metrics,
-        }
+    # ✔️ UNIFIED ARTIFACT STRUCTURE (ONE inference contract)
+    # Ensures consistent behavior across sklearn and transformer models
+    artifact_bundle = {
+        "name": config.experiment.name,
+        "config": config.model_dump(),
+        "model": bundle.model,
+        "tokenizer": bundle.tokenizer if bundle.type == "transformer" else None,
+        "preprocessor": feature_transformer,
+        "type": bundle.type,
+        "metrics": validation_metrics,
+    }
 
     joblib.dump(artifact_bundle, model_path)
     joblib.dump(
