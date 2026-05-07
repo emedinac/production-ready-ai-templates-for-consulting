@@ -6,7 +6,10 @@ import pandas as pd
 
 from ...configs.loader import load_config
 from ...evaluation.metrics import compute_metrics
-from ...src.data.features import prepare_text_classification_data, prepare_tabular_data
+from ...src.data.features import (
+    prepare_text_classification_data,
+    prepare_tabular_data,
+)
 from .train_utils import build_model
 
 
@@ -29,7 +32,6 @@ def train():
     model_path.parent.mkdir(parents=True, exist_ok=True)
     metrics_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # Load preprocessed data
     train_df = pd.read_csv(processed_dir / "train.csv")
     val_df = pd.read_csv(processed_dir / "validation.csv")
     print(f"Loaded train samples: {len(train_df)}")
@@ -40,26 +42,18 @@ def train():
     if len(val_df) == 0:
         raise ValueError("Validation dataset is empty")
 
-    # Prepare features based on task type
     if config.task.type == "text_classification":
         X_train, X_val, y_train, y_val, feature_transformer = (
-            prepare_text_classification_data(train_df, val_df)
+            prepare_text_classification_data(train_df, val_df, config)
         )
     else:
-        normalize = bool(
-            config.data.preprocessing
-            and config.data.preprocessing.tabular
-            and config.data.preprocessing.tabular.normalize
-        )
         X_train, X_val, y_train, y_val, feature_transformer = prepare_tabular_data(
-            train_df, val_df, normalize=normalize
+            train_df, val_df, config
         )
 
-    # Train model
     model = build_model(config)
     model.fit(X_train, y_train)
 
-    # Evaluate
     y_pred = model.predict(X_val)
     validation_metrics = compute_metrics(config, y_val, y_pred)
 
@@ -68,6 +62,12 @@ def train():
         "val_samples": len(val_df),
         "task": config.task.type,
         "problem_type": config.task.problem_type,
+        "training": {
+            "optimizer": config.training.optimizer,
+            "learning_rate": config.training.learning_rate,
+            "epochs": config.training.epochs,
+            "scheduler": config.training.scheduler.type,
+        },
         "validation": validation_metrics,
     }
 
@@ -77,6 +77,11 @@ def train():
         "problem_type": config.task.problem_type,
         "train_samples": len(train_df),
         "val_samples": len(val_df),
+        "training_config": {
+            "optimizer": config.training.optimizer,
+            "learning_rate": config.training.learning_rate,
+            "epochs": config.training.epochs,
+        },
     }
 
     if feature_transformer is not None:
