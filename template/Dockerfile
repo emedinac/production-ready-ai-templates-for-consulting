@@ -30,18 +30,24 @@ ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libffi8 curl \
+    libffi8 curl git \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy installed deps
+# Copy installed deps from builder
 COPY --from=builder /usr/local /usr/local
 
-# Now copy source
-COPY my_ai_project ./my_ai_project
+# Copy pyproject.toml for poetry commands
+COPY pyproject.toml poetry.lock ./
 
+# Copy source code
+COPY {{project_name}} ./{{project_name}}
+
+# Create non-root user
 RUN useradd -m appuser
 USER appuser
 
 EXPOSE 8000
 
-CMD ["uvicorn", "my_ai_project.serving.api:app", "--host", "0.0.0.0", "--port", "8000"]
+# Default: run API server
+# Can be overridden via docker-compose entrypoint
+CMD ["uvicorn", "{{project_name}}.serving.api:app", "--host", "0.0.0.0", "--port", "8000"]

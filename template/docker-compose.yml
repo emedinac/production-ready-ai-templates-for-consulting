@@ -1,45 +1,124 @@
+version: "3.9"
+
 services:
+  # ─────────────────────────────────────────────────────────────────
+  # MLflow Tracking Server
+  # ─────────────────────────────────────────────────────────────────
   mlflow:
     image: ghcr.io/mlflow/mlflow:v2.13.0
     environment:
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - MLFLOW_BACKEND_STORE_URI=postgresql://mlflow:password@db:5432/mlflow
+      - MLFLOW_DEFAULT_ARTIFACT_ROOT=/mlflow-artifacts
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
     volumes:
-      - mlflow-db:/mlflow-db
-    command: mlflow server --host 0.0.0.0 --backend-store-uri postgresql://mlflow:password@db/mlflow
-
-  api:
-    build: .
-    environment:
-      - MODEL_VERSION=latest
-      - DVC_REMOTE=models
+      - mlflow-artifacts:/mlflow-artifacts
     ports:
-      - "8000:8000"
+      - "5000:5000"
     depends_on:
-      - mlflow
+      - db
+    command: mlflow server --host 0.0.0.0 --port 5000
 
+  # ─────────────────────────────────────────────────────────────────
+  # PostgreSQL (MLflow backend + DVC remote)
+  # ─────────────────────────────────────────────────────────────────
   db:
-    image: postgres:13
+    image: postgres:16-alpine
     environment:
       - POSTGRES_DB=mlflow
       - POSTGRES_USER=mlflow
       - POSTGRES_PASSWORD=password
     volumes:
       - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mlflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ─────────────────────────────────────────────────────────────────
+  # Compute Service (Training, Testing, DVC Pipeline)
+  # ─────────────────────────────────────────────────────────────────
+  compute:
+    build: .
+    environment:
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - MODEL_VERSION=latest
+      - DVC_REMOTE=models
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - .:/app
+      - dvc-cache:/app/.dvc/cache
+      - model-artifacts:/app/models/artifacts
+      - processed-data:/app/{{project_name}}/data/processed
+    working_dir: /app
+    depends_on:
+      db:
+        condition: service_healthy
+      mlflow:
+        condition: service_started
+    # Override default CMD when needed (via docker-compose run or Makefile)
+    entrypoint: ["poetry", "run"]
+    command: ["python", "-m", "{{project_name}}.src.models.train"]
+
+  # ─────────────────────────────────────────────────────────────────
+  # API Service (FastAPI Inference)
+  # ─────────────────────────────────────────────────────────────────
+  api:
+    build: .
+    environment:
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - MODEL_VERSION=latest
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - model-artifacts:/app/models/artifacts:ro
+    ports:
+      - "8000:8000"
+    depends_on:
+      - mlflow
+    # Default: run API server
+    command: ["uvicorn", "{{project_name}}.serving.api:app", "--host", "0.0.0.0", "--port", "8000"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # ─────────────────────────────────────────────────────────────────
+  # Prometheus (Metrics Collection)
+  # ─────────────────────────────────────────────────────────────────
   prometheus:
     image: prom/prometheus:v2.52.0
-    ports: ["9090:9090"]
-    volumes: ["./infra/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml"]
+    volumes:
+      - ./infra/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
 
+  # ─────────────────────────────────────────────────────────────────
+  # Grafana (Visualization & Dashboards)
+  # ─────────────────────────────────────────────────────────────────
   grafana:
     image: grafana/grafana:10.4.2
-    ports: ["3000:3000"]
     environment:
-      GF_SECURITY_ADMIN_PASSWORD: admin
-    volumes: ["./infra/monitoring/grafana_dashboards:/etc/grafana/provisioning/dashboards"]
-    depends_on: [prometheus]
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_USER=admin
+    volumes:
+      - ./infra/monitoring/grafana_dashboards:/etc/grafana/provisioning/dashboards
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
 
 volumes:
-  mlflow-db:
   postgres-data:
+  mlflow-artifacts:
+  dvc-cache:
+  model-artifacts:
+  processed-data:
+  prometheus-data:
   grafana-data:
