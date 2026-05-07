@@ -1,0 +1,69 @@
+name: DVC Pipeline
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  dvc-pipeline:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:13
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: test
+        options: >-
+          --health-cmd pg_isready --health-interval 10s --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Poetry
+        run: |
+          curl -sSL https://install.python-poetry.org | python3 -
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pypoetry
+          key: poetry-cache-{% raw %}${{ hashFiles('**/poetry.lock') }}{% endraw %}
+
+      - name: Install dependencies
+        run: poetry install
+
+      - name: Validate config
+        run: poetry run python -m {{project_name}}.configs.validate
+
+      - name: DVC pull data
+        run: poetry run dvc pull || echo "No remote data yet"
+
+      - name: Run pipeline
+        run: poetry run dvc repro
+
+      - name: DVC push results
+        run: poetry run dvc push || echo "No remote configured"
+
+      - name: Upload metrics
+        uses: actions/upload-artifact@v4
+        with:
+          name: metrics
+          path: |
+            results/eval_metrics.json
+            dvc.lock

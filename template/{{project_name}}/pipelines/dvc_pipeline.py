@@ -135,7 +135,7 @@ def get_metrics(stage_name: str) -> Optional[Dict[str, Any]]:
     """
     # Try to find metrics file based on stage
     metrics_paths = {
-        "preprocess": "{{project_name}}/data/preprocess_metrics.json",
+        "preprocess": "{{project_name}}/metrics/preprocess.json",
         "train": "{{project_name}}/models/metrics.json",
         "evaluate": "results/eval_metrics.json",
     }
