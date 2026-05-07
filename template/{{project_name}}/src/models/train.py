@@ -19,18 +19,28 @@ def _resolve_path(project_root: Path, path_str: str) -> Path:
     return path if path.is_absolute() else project_root / path
 
 
+def _experiment_results_dir(repo_root: Path, experiment_name: str) -> Path:
+    return repo_root / "results" / experiment_name
+
+
 def train():
     """Train model based on configuration and preprocessed data."""
     config = load_config()
-    project_root = Path(__file__).resolve().parents[2]
+    repo_root = Path(__file__).resolve().parents[3]
 
-    processed_dir = _resolve_path(project_root, config.data.processed_dir)
-    model_path = _resolve_path(project_root, config.output.model_path)
-    metrics_path = _resolve_path(project_root, config.output.metrics_path)
+    processed_dir = _resolve_path(repo_root, config.data.processed_dir)
+    model_path = _resolve_path(repo_root, config.output.model_path)
+    metrics_path = _resolve_path(repo_root, config.output.metrics_path)
 
     processed_dir.mkdir(parents=True, exist_ok=True)
     model_path.parent.mkdir(parents=True, exist_ok=True)
     metrics_path.parent.mkdir(parents=True, exist_ok=True)
+
+    results_experiment_dir = _experiment_results_dir(repo_root, config.experiment.name)
+    results_model_dir = results_experiment_dir / "models"
+    results_metrics_dir = results_experiment_dir / "metrics"
+    results_model_dir.mkdir(parents=True, exist_ok=True)
+    results_metrics_dir.mkdir(parents=True, exist_ok=True)
 
     train_df = pd.read_csv(processed_dir / "train.csv")
     val_df = pd.read_csv(processed_dir / "validation.csv")
@@ -93,7 +103,10 @@ def train():
     print(json.dumps(validation_metrics, indent=2))
 
     joblib.dump(model, model_path)
+    joblib.dump(model, results_model_dir / model_path.name)
+
     metrics_path.write_text(json.dumps(metrics, indent=2))
+    (results_metrics_dir / metrics_path.name).write_text(json.dumps(metrics, indent=2))
 
     return model_path, metrics_path
 

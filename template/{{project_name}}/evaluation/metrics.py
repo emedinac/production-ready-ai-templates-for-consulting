@@ -1,6 +1,7 @@
 from pathlib import Path
 import json
 
+from ..configs.loader import load_config
 from sklearn.metrics import (
     accuracy_score,
     f1_score,
@@ -36,12 +37,21 @@ def compute_metrics(config, y_true, y_pred) -> dict:
 
 
 def write_evaluation_metrics() -> Path:
-    project_root = Path(__file__).resolve().parents[1]
+    config = load_config()
+    repo_root = Path(__file__).resolve().parents[2]
 
-    output_path = project_root / "results/eval_metrics.json"
+    output_path = repo_root / "results/eval_metrics.json"
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    output_path.write_text(json.dumps({"accuracy": 0.0, "f1": 0.0}, indent=2))
+    experiment_dir = repo_root / "results" / config.experiment.name
+    experiment_metrics_dir = experiment_dir / "metrics"
+    experiment_metrics_dir.mkdir(parents=True, exist_ok=True)
+
+    metrics = {"accuracy": 0.0, "f1": 0.0}
+    output_path.write_text(json.dumps(metrics, indent=2))
+    (experiment_metrics_dir / "eval_metrics.json").write_text(
+        json.dumps(metrics, indent=2)
+    )
 
     return output_path
 

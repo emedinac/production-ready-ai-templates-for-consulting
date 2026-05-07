@@ -39,9 +39,7 @@ def build_model(config):
                 learning_rate="optimal",
                 tol=1e-3,
             )
-        return LogisticRegression(
-            max_iter=max(epochs, 100), solver="lbfgs", multi_class="auto"
-        )
+        return LogisticRegression(max_iter=max(epochs, 100), solver="lbfgs")
 
     raise NotImplementedError(
         f"Task problem type '{config.task.problem_type}' is not supported"

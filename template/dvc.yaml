@@ -27,4 +27,4 @@ stages:
       - {{project_name}}/models/artifacts
       - {{project_name}}/data/processed
     metrics:
-      - {{project_name}}/results/eval_metrics.json
+      - results/eval_metrics.json

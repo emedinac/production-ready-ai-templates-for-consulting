@@ -71,6 +71,6 @@ artifacts:
   metrics_dir: "{{project_name}}/metrics" # Documentation only - actual paths hardcoded in code
 
 output:
-  model_path: "{{project_name}}/models/model.pkl"
-  metrics_path: "{{project_name}}/metrics/metrics.json"
+  model_path: "{{project_name}}/models/artifacts/model.pkl"
+  metrics_path: "{{project_name}}/models/metrics.json"
   logs_path: "{{project_name}}/logs"

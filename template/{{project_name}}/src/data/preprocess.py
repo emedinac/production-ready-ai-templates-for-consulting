@@ -37,11 +37,11 @@ def _apply_text_preprocessing(df: pd.DataFrame, text_cfg):
 def preprocess() -> Path:
     config = load_config()
 
-    project_root = Path(__file__).resolve().parents[2]
-    output_dir = _resolve_path(project_root, config.data.processed_dir)
+    repo_root = Path(__file__).resolve().parents[3]
+    output_dir = _resolve_path(repo_root, config.data.processed_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    metrics_dir = _resolve_path(project_root, config.artifacts.metrics_dir)
+    metrics_dir = _resolve_path(repo_root, config.artifacts.metrics_dir)
     metrics_dir.mkdir(parents=True, exist_ok=True)
 
     # LOAD DATA
@@ -52,7 +52,7 @@ def preprocess() -> Path:
         )
         df = pd.DataFrame(dataset["train"])
     elif config.data.source.type == "local":
-        data_path = _resolve_path(project_root, config.data.source.local.path)
+        data_path = _resolve_path(repo_root, config.data.source.local.path)
         df = pd.read_csv(data_path)
     else:
         raise NotImplementedError(
@@ -111,6 +111,11 @@ def preprocess() -> Path:
     }
 
     (metrics_dir / "preprocess.json").write_text(json.dumps(metrics, indent=2))
+
+    results_experiment_dir = repo_root / "results" / config.experiment.name
+    results_metrics_dir = results_experiment_dir / "metrics"
+    results_metrics_dir.mkdir(parents=True, exist_ok=True)
+    (results_metrics_dir / "preprocess.json").write_text(json.dumps(metrics, indent=2))
 
     return output_dir
 
