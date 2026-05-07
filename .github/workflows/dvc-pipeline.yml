@@ -1,0 +1,45 @@
+name: DVC Pipeline
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  dvc-pipeline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install Poetry
+        run: |
+          pip install poetry
+          poetry install
+
+      - name: Validate config
+        run: poetry run python -m {{project_name}}.configs.validate
+
+      - name: DVC pull data
+        run: |
+          dvc pull {{project_name}}/data/processed || echo "No remote data yet"
+
+      - name: Run DVC pipeline
+        run: poetry run dvc repro
+
+      - name: DVC push artifacts
+        run: dvc push || echo "No remote configured"
+
+      - name: Upload metrics
+        uses: actions/upload-artifact@v4
+        with:
+          name: metrics
+          path: |
+            results/eval_metrics.json
+            dvc.lock
