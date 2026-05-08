@@ -1,8 +1,11 @@
 from pathlib import Path
-import json
-
-import joblib
 import pandas as pd
+import mlflow
+import mlflow.sklearn
+import mlflow.pyfunc
+from mlflow.models.signature import infer_signature
+
+from tempfile import TemporaryDirectory
 
 from ...configs.loader import load_config
 from ...evaluation.metrics import compute_metrics
@@ -10,50 +13,29 @@ from ...src.data.features import (
     prepare_text_classification_data,
     prepare_tabular_data,
 )
-from .train_utils import build_model, train_transformer
-from collections import Counter
+from .train_utils import build_model, train_transformer, TransformerWrapper
+
 from sklearn.metrics import confusion_matrix, classification_report
 
 
-def _resolve_path(project_root: Path, path_str: str) -> Path:
-    """Resolve relative paths from project root."""
-    path = Path(path_str)
-    return path if path.is_absolute() else project_root / path
-
-
-def _experiment_results_dir(repo_root: Path, experiment_name: str) -> Path:
-    return repo_root / "results" / experiment_name
+def _resolve_path(root: Path, path_str: str) -> Path:
+    p = Path(path_str)
+    return p if p.is_absolute() else root / p
 
 
 def train():
-    """Train model based on configuration and preprocessed data."""
     config = load_config()
     repo_root = Path(__file__).resolve().parents[3]
 
     processed_dir = _resolve_path(repo_root, config.data.processed_dir)
-    model_path = _resolve_path(repo_root, config.output.model_path)
-    metrics_path = _resolve_path(repo_root, config.output.metrics_path)
-
-    processed_dir.mkdir(parents=True, exist_ok=True)
-    model_path.parent.mkdir(parents=True, exist_ok=True)
-    metrics_path.parent.mkdir(parents=True, exist_ok=True)
-
-    results_experiment_dir = _experiment_results_dir(repo_root, config.experiment.name)
-    results_model_dir = results_experiment_dir / "models"
-    results_metrics_dir = results_experiment_dir / "metrics"
-    results_model_dir.mkdir(parents=True, exist_ok=True)
-    results_metrics_dir.mkdir(parents=True, exist_ok=True)
 
     train_df = pd.read_csv(processed_dir / "train.csv")
     val_df = pd.read_csv(processed_dir / "validation.csv")
-    print(f"Loaded train samples: {len(train_df)}")
-    print(f"Loaded validation samples: {len(val_df)}")
 
-    if len(train_df) == 0:
-        raise ValueError("Train dataset is empty")
-    if len(val_df) == 0:
-        raise ValueError("Validation dataset is empty")
+    if train_df.empty or val_df.empty:
+        raise ValueError("Empty dataset")
 
+    # DATA
     if config.task.type == "text_classification":
         X_train, X_val, y_train, y_val, feature_transformer = (
             prepare_text_classification_data(train_df, val_df, config)
@@ -63,86 +45,86 @@ def train():
             train_df, val_df, config
         )
 
+    # MODEL
     bundle = build_model(config)
 
     if bundle.type == "transformer":
-        bundle.model = train_transformer(bundle, train_df, val_df, config)
+        model = train_transformer(bundle, train_df, val_df, config)
     else:
-        bundle.model.fit(X_train, y_train)
+        model = bundle.model
+        model.fit(X_train, y_train)
 
-    # prediction MUST use bundle.model
-    y_pred = bundle.model.predict(X_val)
-    validation_metrics = compute_metrics(config, y_val, y_pred)
+    # EVAL
+    y_pred = model.predict(X_val)
+    metrics = compute_metrics(config, y_val, y_pred)
 
-    print("\n=== Data Distribution ===")
-    print("Train distribution:", dict(Counter(y_train)))
-    print("Validation distribution:", dict(Counter(y_val)))
-    print("Predictions distribution:", dict(Counter(y_pred)))
-    print("\nConfusion Matrix:")
     print(confusion_matrix(y_val, y_pred))
-    print("\nClassification Report:")
     print(classification_report(y_val, y_pred))
-    print("=== End Diagnostics ===")
 
-    metrics = {
-        "train_samples": len(train_df),
-        "val_samples": len(val_df),
-        "task": config.task.type,
-        "problem_type": config.task.problem_type,
-        "training": {
+    # MLflow
+    mlflow.set_tracking_uri("http://mlflow:5000")
+    exp = mlflow.get_experiment_by_name(config.experiment.name)
+    if exp is None:
+        mlflow.create_experiment(config.experiment.name)
+    mlflow.set_experiment(config.experiment.name)
+    with mlflow.start_run():
+        mlflow.log_params({
+            "model_type": config.model.type,
+            "task": config.task.type,
             "optimizer": config.training.optimizer,
-            "learning_rate": config.training.learning_rate,
+            "lr": config.training.learning_rate,
             "epochs": config.training.epochs,
-            "scheduler": config.training.scheduler.type,
-        },
-        "validation": validation_metrics,
-    }
+        })
 
-    artifact = {
-        "config_model_type": config.model.type,
-        "trained_model_class": type(bundle.model).__name__,
-        "feature_preprocessor": type(feature_transformer).__name__
-        if feature_transformer
-        else None,
-        "task": config.task.type,
-        "problem_type": config.task.problem_type,
-        "train_samples": len(train_df),
-        "val_samples": len(val_df),
-        "training_config": {
-            "optimizer": config.training.optimizer,
-            "learning_rate": config.training.learning_rate,
-            "epochs": config.training.epochs,
-        },
-    }
+        mlflow.log_metrics(metrics)
 
-    print("Training complete. Model artifact summary:")
-    print(json.dumps(artifact, indent=2))
-    print("Validation metrics:")
-    print(json.dumps(validation_metrics, indent=2))
+        # SIGNATURE (shared)
+        signature = infer_signature(X_val, y_pred)
 
-    # ✔️ UNIFIED ARTIFACT STRUCTURE (ONE inference contract)
-    # Ensures consistent behavior across sklearn and transformer models
-    artifact_bundle = {
-        "name": config.experiment.name,
-        "config": config.model_dump(),
-        "model": bundle.model,
-        "tokenizer": bundle.tokenizer if bundle.type == "transformer" else None,
-        "preprocessor": feature_transformer,
-        "type": bundle.type,
-        "metrics": validation_metrics,
-    }
+        # SKLEARN
+        if bundle.type == "sklearn":
+            mlflow.sklearn.log_model(
+                sk_model=model,
+                artifact_path="model",
+                signature=signature,
+            )
 
-    joblib.dump(artifact_bundle, model_path)
-    joblib.dump(
-        artifact_bundle,
-        results_model_dir / model_path.name,
-    )
+        # TRANSFORMER
+        elif bundle.type == "transformer":
+            with TemporaryDirectory() as tmp:
+                tmp = Path(tmp)
 
-    metrics_path.write_text(json.dumps(metrics, indent=2))
-    (results_metrics_dir / metrics_path.name).write_text(json.dumps(metrics, indent=2))
+                model_path = tmp / "model"
+                tokenizer_path = tmp / "tokenizer"
 
-    return model_path, metrics_path
+                model.save_pretrained(model_path)
+                if bundle.tokenizer is not None:
+                    bundle.tokenizer.save_pretrained(tokenizer_path)
 
+                mlflow.pyfunc.log_model(
+                    artifact_path="model",
+                    python_model=TransformerWrapper(),
+                    artifacts={
+                        "model_path": str(model_path),
+                        "tokenizer_path": str(tokenizer_path),
+                    },
+                    signature=signature,
+                )
 
-if __name__ == "__main__":
-    train()
+        else:
+            raise ValueError(f"Unsupported model type: {bundle.type}")
+
+        # REGISTER MODEL
+        model_name = (
+            getattr(config.tracking.mlflow, "registered_model_name", None)
+            or config.experiment.name
+        )
+
+        model_uri = f"runs:/{mlflow.active_run().info.run_id}/model"
+
+        try:
+            mlflow.register_model(model_uri, model_name)
+        except Exception as e:
+            print(f"[WARN] registration failed: {e}")
+
+    print("Training complete")

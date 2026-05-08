@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from typing import Any, Optional
+import pandas as pd
 
+import mlflow
 import torch
 from torch.utils.data import Dataset, DataLoader
 from torch.optim import AdamW
@@ -13,6 +15,28 @@ from sklearn.linear_model import (
 )
 
 
+class TransformerWrapper(mlflow.pyfunc.PythonModel):
+    def load_context(self, context):
+
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            context.artifacts["tokenizer_path"]
+        )
+        self.model = AutoModelForSequenceClassification.from_pretrained(
+            context.artifacts["model_path"]
+        )
+        self.model.eval()
+
+    def predict(self, context, model_input: pd.DataFrame, params=None) -> list[int]:
+        texts = model_input["text"].tolist()
+        enc = self.tokenizer(texts, return_tensors="pt", padding=True, truncation=True)
+
+        with torch.no_grad():
+            out = self.model(**enc)
+
+        return out.logits.argmax(-1).cpu().numpy()
+
+
+# MODEL BUNDLE
 @dataclass
 class ModelBundle:
     model: Any
@@ -20,7 +44,7 @@ class ModelBundle:
     type: str = "sklearn"
 
 
-# SIMPLE TEXT DATASET
+# DATASET
 class TextDataset(Dataset):
     def __init__(self, texts, labels, tokenizer, max_length=256):
         self.texts = texts
@@ -45,21 +69,21 @@ class TextDataset(Dataset):
         return item
 
 
-# TRANSFORMER TRAINING LOOP
+# TRANSFORMER TRAINING
 def train_transformer(bundle: ModelBundle, train_df, val_df, config):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     model = bundle.model.to(device)
     tokenizer = bundle.tokenizer
 
-    train_dataset = TextDataset(
+    dataset = TextDataset(
         train_df["text"].tolist(),
         train_df["label"].tolist(),
         tokenizer,
     )
 
-    train_loader = DataLoader(
-        train_dataset,
+    loader = DataLoader(
+        dataset,
         batch_size=config.training.batch_size,
         shuffle=True,
     )
@@ -74,7 +98,7 @@ def train_transformer(bundle: ModelBundle, train_df, val_df, config):
     for epoch in range(config.training.epochs):
         total_loss = 0.0
 
-        for batch in train_loader:
+        for batch in loader:
             batch = {k: v.to(device) for k, v in batch.items()}
 
             outputs = model(**batch)
@@ -86,44 +110,38 @@ def train_transformer(bundle: ModelBundle, train_df, val_df, config):
 
             total_loss += loss.item()
 
-        print(f"[Transformer] Epoch {epoch + 1}, loss={total_loss:.4f}")
+        print(f"[Transformer] epoch={epoch + 1}, loss={total_loss:.4f}")
 
     return model
 
 
 # MODEL BUILDER
 def build_model(config):
-    optimizer = config.training.optimizer.lower()
-    epochs = int(config.training.epochs)
-    problem_type = config.task.problem_type
     model_type = config.model.type.lower()
+    problem_type = config.task.problem_type
 
     # SKLEARN
     if model_type in {"sklearn", "linear", "xgboost"}:
         if problem_type == "regression":
             model = (
                 SGDRegressor(
-                    max_iter=epochs,
+                    max_iter=int(config.training.epochs),
                     eta0=float(config.training.learning_rate),
-                    learning_rate="invscaling",
                 )
-                if optimizer == "sgd"
+                if config.training.optimizer.lower() == "sgd"
                 else LinearRegression()
             )
 
-        elif problem_type in {"binary", "multiclass"}:
+        else:
             model = (
                 SGDClassifier(
-                    max_iter=epochs,
+                    max_iter=int(config.training.epochs),
                     eta0=float(config.training.learning_rate),
-                    learning_rate="optimal",
                     tol=1e-3,
                 )
-                if optimizer == "sgd"
-                else LogisticRegression(max_iter=max(epochs, 200))
+                if config.training.optimizer.lower() == "sgd"
+                else LogisticRegression(max_iter=300)
             )
-        else:
-            raise ValueError(f"Unsupported problem type: {problem_type}")
 
         return ModelBundle(model=model, type="sklearn")
 
