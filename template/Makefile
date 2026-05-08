@@ -1,51 +1,46 @@
-.PHONY: help init setup setup-prod test pipeline pipeline-prod train api inference promote data-pull data-push model-push model-pull deploy-model monitor up down reset clean all
+.PHONY: help init setup setup-prod test pipeline train api inference promote \
+        data-pull data-push model-push model-pull deploy-model monitor \
+        up down reset clean all
 
 DC := docker compose
 
-# ──────────────────────────────────────────────────────────────────────────
+# CONFIG
+DATA_SOURCE ?= dvc   # options: dvc | local
+
+ifeq ($(DATA_SOURCE),dvc)
+DATA_CMD := $(DC) run --rm compute dvc pull $(PROJECT)/data/processed
+else
+DATA_CMD := echo "Using local data (no DVC pull)"
+endif
+
 # HELP
-# ──────────────────────────────────────────────────────────────────────────
-
 help:
-	@echo "🚀 ML Pipeline (container-only)"
+	@echo "ML Pipeline"
+	@echo "DATA_SOURCE=dvc|local make pipeline"
 
-# ──────────────────────────────────────────────────────────────────────────
-# SETUP (host bootstrap only, not runtime)
-# ──────────────────────────────────────────────────────────────────────────
-
+# SETUP
 init:
 	poetry install --with dev
-	git init || true
 
 setup: init
 	$(DC) up -d --build
 
-setup-prod:
-	$(DC) up -d --build
+# CORE PIPELINE
+data-preprocess:
+	$(DC) run --rm compute python -m {{project_name}}.src.data.preprocess
 
-# ──────────────────────────────────────────────────────────────────────────
-# TRAIN / TEST / PIPELINE (ALL INSIDE CONTAINERS)
-# ──────────────────────────────────────────────────────────────────────────
+pipeline:
+	$(DATA_CMD)
+	$(DC) run --rm compute python -m {{project_name}}.src.data.preprocess
+	$(DC) run --rm compute python -m {{project_name}}.src.models.train
 
 train:
-	$(DC) run --rm compute python -m my_ai_project.src.models.train
+	$(DC) run --rm compute python -m {{project_name}}.src.models.train
 
 test:
-	$(DC) run --rm compute pytest my_ai_project/tests -v --tb=short
+	$(DC) run --rm compute pytest {{project_name}}/tests -v
 
-pipeline: data-pull
-	$(DC) run --rm compute dvc repro
-
-pipeline-prod: data-pull
-	$(DC) run --rm compute dvc repro --force
-
-validate-config:
-	$(DC) run --rm compute python -m my_ai_project.configs.validate
-
-# ──────────────────────────────────────────────────────────────────────────
-# API (service mode)
-# ──────────────────────────────────────────────────────────────────────────
-
+# API
 api:
 	$(DC) up --build api
 
@@ -54,52 +49,36 @@ inference:
 		-H "Content-Type: application/json" \
 		-d '{"text": "this movie is great"}'
 
-# ──────────────────────────────────────────────────────────────────────────
-# DVC / DATA / MODEL
-# ──────────────────────────────────────────────────────────────────────────
-
+# DATA / MODEL
 data-pull:
-	dvc pull my_ai_project/data/processed || true
-
-data-push:
-	dvc push my_ai_project/data/processed
+	$(DC) run --rm compute dvc pull {{project_name}}/data/processed || true
 
 model-pull:
-	dvc pull my_ai_project/models/artifacts
+	$(DC) run --rm compute dvc pull {{project_name}}/models/artifacts
 
 model-push:
-	dvc push my_ai_project/models/artifacts
+	$(DC) run --rm compute dvc push {{project_name}}/models/artifacts
 
-# ──────────────────────────────────────────────────────────────────────────
 # ML LIFECYCLE
-# ──────────────────────────────────────────────────────────────────────────
-
 promote:
 	$(DC) run --rm compute python -m promotion.gate
 
 deploy-model: model-push
-	$(DC) run --rm compute python -m my_ai_project.serving.deploy
+	$(DC) run --rm compute python -m {{project_name}}.serving.deploy
 
 monitor:
-	$(DC) run --rm compute python -m my_ai_project.monitoring.drift
+	$(DC) run --rm compute python -m {{project_name}}.monitoring.drift
 
-# ──────────────────────────────────────────────────────────────────────────
 # SYSTEM
-# ──────────────────────────────────────────────────────────────────────────
-
 up:
 	$(DC) up -d --build
 
 down:
 	$(DC) down
 
-reset: down
+reset:
 	$(DC) down -v
-	find . -type d -name __pycache__ -exec rm -rf {} +
-	find . -type d -name .pytest_cache -exec rm -rf {} +
-	dvc gc -w
-
-all: init setup test pipeline
 
 clean: reset
-	find . -type f -name "*.pyc" -delete
+
+all: setup test pipeline
