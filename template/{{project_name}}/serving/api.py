@@ -25,8 +25,11 @@ async def lifespan(app: FastAPI):
     cfg = load_and_validate_config()
 
     app.state.model_name = cfg.tracking.mlflow.experiment_name
-    app.state.model = load_production_model(app.state.model_name)
-
+    try:
+        app.state.model = load_production_model(app.state.model_name)
+    except Exception as e:
+        app.state.model = None
+        print(f"[WARN] model load failed: {e}")
     yield
 
 
