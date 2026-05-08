@@ -1,3 +1,4 @@
+import os
 from dataclasses import dataclass
 from typing import Any, Optional
 import pandas as pd
@@ -13,6 +14,17 @@ from sklearn.linear_model import (
     SGDRegressor,
     LinearRegression,
 )
+
+
+def setup_mlflow(experiment_name: str):
+    tracking_uri = os.getenv("MLFLOW_TRACKING_URI", "http://mlflow:5000")
+    mlflow.set_tracking_uri(tracking_uri)
+
+    exp = mlflow.get_experiment_by_name(experiment_name)
+    if exp is None:
+        mlflow.create_experiment(experiment_name)
+
+    mlflow.set_experiment(experiment_name)
 
 
 class TransformerWrapper(mlflow.pyfunc.PythonModel):

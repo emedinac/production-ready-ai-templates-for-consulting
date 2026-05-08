@@ -1,3 +1,3 @@
-FROM ghcr.io/mlflow/mlflow:v2.13.0
+FROM ghcr.io/mlflow/mlflow:v3.11.1
 
 RUN pip install psycopg2-binary
