@@ -82,3 +82,9 @@ reset:
 clean: reset
 
 all: setup test pipeline
+
+Modify preprocess so it obeys:
+
+# if DATA_SOURCE=dvc -> load from /data/processed
+# if DATA_SOURCE=hf -> download
+# if DATA_SOURCE=local -> local files only
