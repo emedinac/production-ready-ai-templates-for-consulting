@@ -3,9 +3,9 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Request
 from prometheus_client import Counter, Histogram, make_asgi_app
 
-from serving.loader import load_production_model
-from serving.schema import PredictRequest
-from configs.validate import load_and_validate_config
+from CHANGE_ME.serving.loader import load_production_model
+from CHANGE_ME.serving.schema import PredictRequest
+from CHANGE_ME.configs.validate import load_and_validate_config
 import pandas as pd
 
 # PROMETHEUS METRICS
