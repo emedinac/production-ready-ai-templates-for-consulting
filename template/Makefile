@@ -5,18 +5,20 @@
 DC := docker compose
 
 # CONFIG
-DATA_SOURCE ?= dvc   # options: dvc | local
+DATA_SOURCE ?= dvc   # options: dvc | hf | local
 
 ifeq ($(DATA_SOURCE),dvc)
-DATA_CMD := $(DC) run --rm compute dvc pull $(PROJECT)/data/processed
+DATA_CMD := $(DC) run --rm compute dvc pull {{project_name}}/data/processed
+else ifeq ($(DATA_SOURCE),hf)
+DATA_CMD := $(DC) run --rm compute python -m {{project_name}}.src.data.download_hf
 else
-DATA_CMD := echo "Using local data (no DVC pull)"
+DATA_CMD := echo "Using local data (no download)"
 endif
 
 # HELP
 help:
 	@echo "ML Pipeline"
-	@echo "DATA_SOURCE=dvc|local make pipeline"
+	@echo "DATA_SOURCE=dvc|hf|local make pipeline"
 
 # SETUP
 init:
@@ -30,6 +32,8 @@ data-preprocess:
 	$(DC) run --rm compute python -m {{project_name}}.src.data.preprocess
 
 pipeline:
+	$(DC) up -d db mlflow
+	$(DC) run --rm --entrypoint python compute scripts/wait_for_mlflow.py
 	$(DATA_CMD)
 	$(DC) run --rm compute python -m {{project_name}}.src.data.preprocess
 	$(DC) run --rm compute python -m {{project_name}}.src.models.train
@@ -82,9 +86,3 @@ reset:
 clean: reset
 
 all: setup test pipeline
-
-Modify preprocess so it obeys:
-
-# if DATA_SOURCE=dvc -> load from /data/processed
-# if DATA_SOURCE=hf -> download
-# if DATA_SOURCE=local -> local files only

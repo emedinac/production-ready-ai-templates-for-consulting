@@ -1,9 +1,11 @@
 import os
+import time
 from dataclasses import dataclass
 from typing import Any, Optional
 import pandas as pd
 
 import mlflow
+from mlflow.exceptions import MlflowException
 import torch
 from torch.utils.data import Dataset, DataLoader
 from torch.optim import AdamW
@@ -20,11 +22,20 @@ def setup_mlflow(experiment_name: str):
     tracking_uri = os.getenv("MLFLOW_TRACKING_URI", "http://mlflow:5000")
     mlflow.set_tracking_uri(tracking_uri)
 
-    exp = mlflow.get_experiment_by_name(experiment_name)
-    if exp is None:
-        mlflow.create_experiment(experiment_name)
+    deadline = time.time() + 60
+    while True:
+        try:
+            exp = mlflow.get_experiment_by_name(experiment_name)
+            if exp is None:
+                mlflow.create_experiment(experiment_name)
 
-    mlflow.set_experiment(experiment_name)
+            mlflow.set_experiment(experiment_name)
+            return
+        except MlflowException as exc:
+            if time.time() >= deadline:
+                raise
+            print(f"MLflow unavailable at {tracking_uri}, retrying: {exc}")
+            time.sleep(2)
 
 
 class TransformerWrapper(mlflow.pyfunc.PythonModel):

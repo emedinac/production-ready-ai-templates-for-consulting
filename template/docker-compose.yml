@@ -11,17 +11,34 @@ services:
     volumes:
       - ./mlruns:/mlruns
       - ./mlflow.db:/mlflow.db
+      - mlflow-artifacts:/mlflow-artifacts
     ports:
       - "5000:5000"
     depends_on:
       db:
         condition: service_healthy
-    command: >
-      mlflow server
-      --host 0.0.0.0
-      --port 5000
-      --backend-store-uri sqlite:///mlflow.db
-      --default-artifact-root /mlruns
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    command:
+      - mlflow
+      - server
+      - --host
+      - 0.0.0.0
+      - --port
+      - "5000"
+      - --backend-store-uri
+      - postgresql://mlflow:password@db:5432/mlflow
+      - --default-artifact-root
+      - mlflow-artifacts:/
+      - --artifacts-destination
+      - /mlflow-artifacts
+      - --allowed-hosts
+      - "*"
+      - --cors-allowed-origins
+      - "*"
 
   
   # PostgreSQL (MLflow backend + DVC remote)
@@ -42,7 +59,7 @@ services:
   
   # Compute Service (Training, Testing, DVC Pipeline)
   compute:
-    user: "${UID}:${GID}"
+    user: "${UID:-1000}:${GID:-1000}"
     build: .
     environment:
       - MLFLOW_TRACKING_URI=http://mlflow:5000
@@ -54,12 +71,13 @@ services:
       - dvc-cache:/app/.dvc/cache
       - model-artifacts:/app/models/artifacts
       - processed-data:/app/data/processed
+      - mlflow-artifacts:/mlflow-artifacts
     working_dir: /app
     depends_on:
       db:
         condition: service_healthy
       mlflow:
-        condition: service_started
+        condition: service_healthy
     entrypoint: []
     command: ["python", "-m", "{{project_name}}.src.models.train"]
 
