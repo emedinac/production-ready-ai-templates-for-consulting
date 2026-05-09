@@ -8,6 +8,10 @@ on:
 jobs:
   dvc-pipeline:
     runs-on: ubuntu-latest
+    env:
+      PROJECT_NAME: sample_project
+      RENDERED_PROJECT: /tmp/sample_project
+      MLFLOW_TRACKING_URI: file:./mlruns
     steps:
       - uses: actions/checkout@v3
         with:
@@ -21,25 +25,46 @@ jobs:
       - name: Install Poetry
         run: |
           pip install poetry
-          poetry install
+          poetry install --with dev
+
+      - name: Render template
+        run: |
+          poetry run copier copy --trust \
+            --data project_name=$PROJECT_NAME \
+            --data use_dvc=true \
+            --data dvc_storage_backend=local \
+            --data use_mlflow=true \
+            --data use_monitoring=true \
+            --data use_fastapi=true \
+            --data use_agents=false \
+            --data use_promotion=true \
+            . "$RENDERED_PROJECT"
+
+      - name: Install rendered project dependencies
+        working-directory: ${{ env.RENDERED_PROJECT }}
+        run: poetry install
 
       - name: Validate config
-        run: poetry run python -m {{project_name}}.configs.validate
+        working-directory: ${{ env.RENDERED_PROJECT }}
+        run: poetry run python -m $PROJECT_NAME.configs.validate
 
       - name: DVC pull data
+        working-directory: ${{ env.RENDERED_PROJECT }}
         run: |
-          dvc pull {{project_name}}/data/processed || echo "No remote data yet"
+          poetry run dvc pull $PROJECT_NAME/data/processed || echo "No remote data yet"
 
       - name: Run DVC pipeline
+        working-directory: ${{ env.RENDERED_PROJECT }}
         run: poetry run dvc repro
 
       - name: DVC push artifacts
-        run: dvc push || echo "No remote configured"
+        working-directory: ${{ env.RENDERED_PROJECT }}
+        run: poetry run dvc push || echo "No remote configured"
 
       - name: Upload metrics
         uses: actions/upload-artifact@v4
         with:
           name: metrics
           path: |
-            results/eval_metrics.json
-            dvc.lock
+            ${{ env.RENDERED_PROJECT }}/results/eval_metrics.json
+            ${{ env.RENDERED_PROJECT }}/dvc.lock

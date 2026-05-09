@@ -9,6 +9,8 @@ on:
 jobs:
   dvc-pipeline:
     runs-on: ubuntu-latest
+    env:
+      MLFLOW_TRACKING_URI: file:./mlruns
 
     services:
       postgres:
@@ -49,7 +51,7 @@ jobs:
         run: poetry install
 
       - name: Validate config
-        run: poetry run python -m CHANGE_ME.configs.validate
+        run: poetry run python -m {{project_name}}.configs.validate
 
       - name: DVC pull data
         run: poetry run dvc pull || echo "No remote data yet"
