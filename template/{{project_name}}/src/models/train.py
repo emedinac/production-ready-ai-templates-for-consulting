@@ -1,12 +1,13 @@
 from pathlib import Path
 import os
-import joblib
 import pandas as pd
 import mlflow
+import mlflow.sklearn
 import mlflow.pyfunc
 
 from mlflow.models.signature import infer_signature
 from tempfile import TemporaryDirectory
+from sklearn.pipeline import Pipeline
 
 from ...configs.loader import load_config
 from ...evaluation.metrics import compute_metrics
@@ -46,11 +47,11 @@ def train():
 
     # DATA
     if config.task.type == "text_classification":
-        X_train, X_val, y_train, y_val, _ = prepare_text_classification_data(
+        X_train, X_val, y_train, y_val, preprocessor = prepare_text_classification_data(
             train_df, val_df, config
         )
     else:
-        X_train, X_val, y_train, y_val, _ = prepare_tabular_data(
+        X_train, X_val, y_train, y_val, preprocessor = prepare_tabular_data(
             train_df, val_df, config
         )
 
@@ -85,17 +86,28 @@ def train():
 
         mlflow.log_metrics(metrics)
 
-        signature = infer_signature(X_val, y_pred)
+        if config.task.type == "text_classification":
+            serving_input = pd.DataFrame({"text": val_df["text"].astype(str)})
+        else:
+            serving_input = val_df.drop(columns=["target"], errors="ignore")
 
-        # SKLEARN MODEL (FIXED)
+        signature = infer_signature(serving_input, y_pred)
+
         if bundle.type == "sklearn":
-            with TemporaryDirectory() as tmp:
-                tmp = Path(tmp)
+            if config.task.type == "text_classification":
+                serving_model = Pipeline([
+                    ("vectorizer", preprocessor),
+                    ("model", model),
+                ])
+            else:
+                serving_model = model
 
-                model_file = tmp / "model.pkl"
-                joblib.dump(model, model_file)
-
-                mlflow.log_artifact(str(model_file), artifact_path="model")
+            mlflow.sklearn.log_model(
+                sk_model=serving_model,
+                artifact_path=artifact_path,
+                signature=signature,
+                input_example=serving_input.head(5),
+            )
 
         # TRANSFORMER MODEL
         elif bundle.type == "transformer":

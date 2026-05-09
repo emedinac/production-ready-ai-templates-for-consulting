@@ -94,7 +94,8 @@ services:
     ports:
       - "8000:8000"
     depends_on:
-      - mlflow
+      mlflow:
+        condition: service_healthy
     # Default: run API server
     command: ["uvicorn", "{{project_name}}.serving.api:app", "--host", "0.0.0.0", "--port", "8000"]
     healthcheck:

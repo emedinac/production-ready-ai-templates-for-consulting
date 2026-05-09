@@ -70,7 +70,7 @@ runtime:
 tracking:
   mlflow:
     enabled: true
-    experiment_name: "default"
+    experiment_name: "exp_001"
 
 artifacts:
   metrics_dir: "{{project_name}}/metrics" # Documentation only - actual paths hardcoded in code

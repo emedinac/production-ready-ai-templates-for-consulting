@@ -25,4 +25,4 @@ COPY . /app
 RUN useradd -m appuser
 USER appuser
 
-CMD ["python", "-m", "my_ai_project.src.models.train"]
+CMD ["python", "-m", "{{project_name}}.src.models.train"]

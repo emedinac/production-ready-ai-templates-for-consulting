@@ -51,7 +51,7 @@ api:
 inference:
 	curl -X POST http://localhost:8000/predict \
 		-H "Content-Type: application/json" \
-		-d '{"text": "this movie is great"}'
+		-d '{"texts": ["this movie is great"]}'
 
 # DATA / MODEL
 data-pull:

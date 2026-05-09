@@ -32,8 +32,11 @@ def load_latest_from_experiment(experiment_name: str):
     if not runs:
         raise ValueError(f"No runs found for experiment: {experiment_name}")
 
-    run_id = runs[0].info.run_id
+    run = runs[0]
 
-    model_uri = f"runs:/{run_id}/model"
+    if run.outputs.model_outputs:
+        model_uri = f"models:/{run.outputs.model_outputs[0].model_id}"
+    else:
+        model_uri = f"runs:/{run.info.run_id}/model"
 
     return mlflow.pyfunc.load_model(model_uri)
