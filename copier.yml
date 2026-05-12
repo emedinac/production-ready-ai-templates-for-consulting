@@ -58,6 +58,10 @@ _tasks:
       storage selected (no external init required)" {% endif %}
 
 _exclude:
+    - .venv
+    - venv
+    - __pycache__
+    - .pytest_cache
     - "{% if not use_dvc %}dvc.yaml{% endif %}"
     - "{% if not use_dvc %}.dvcignore{% endif %}"
     - "{% if not use_dvc %}.github/workflows/dvc-pipeline.yml{% endif %}"

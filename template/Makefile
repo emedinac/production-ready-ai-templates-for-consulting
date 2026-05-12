@@ -1,89 +1,88 @@
-.PHONY: setup setup-prod validate-config test pipeline pipeline-prod train serve promote clean all deploy data-pull data-push model-push model-pull monitor init-prod
+.PHONY: help init setup setup-prod test pipeline train api inference promote \
+        data-pull data-push model-push model-pull deploy-model monitor \
+        up down reset clean all
 
-# Development setup
+DC := docker compose
+
+# CONFIG
+DATA_SOURCE ?= dvc   # options: dvc | hf | local
+
+ifeq ($(DATA_SOURCE),dvc)
+DATA_CMD := $(DC) run --rm compute dvc pull {{project_name}}/data/processed
+else ifeq ($(DATA_SOURCE),hf)
+DATA_CMD := $(DC) run --rm compute python -m {{project_name}}.src.data.download_hf
+else
+DATA_CMD := echo "Using local data (no download)"
+endif
+
+# HELP
+help:
+	@echo "ML Pipeline"
+	@echo "DATA_SOURCE=dvc|hf|local make pipeline"
+
+# SETUP
 init:
-	poetry run dvc init
-
-setup:
 	poetry install --with dev
-	git init || true
-	poetry run dvc init -q || true
-	docker compose up -d
 
-# Production setup
-setup-prod:
-	poetry install --no-dev
-	dvc init --no-scm
-	@echo "Configure your remotes by editing .dvc/config"
-	@echo "Choose your storage backend:"
-	@echo "  S3: dvc remote add -d storage s3://your-bucket/dvc-cache"
-	@echo "  PostgreSQL: dvc remote add -d storage postgresql://user:pass@localhost:5432/dvc_cache"
+setup: init
+	$(DC) up -d --build
 
-# S3-based production setup
-init-prod-s3: setup-prod
-	dvc remote add -d storage s3://your-production-bucket/dvc-cache || echo "Configure storage remote"
-	dvc remote add models s3://your-models-bucket/models || echo "Configure models remote"
-	dvc remote add data s3://your-data-bucket/data || echo "Configure data remote"
+# CORE PIPELINE
+data-preprocess:
+	$(DC) run --rm compute python -m {{project_name}}.src.data.preprocess
 
-# PostgreSQL-based production setup
-init-prod-postgres: setup-prod
-	@echo "Setting up PostgreSQL remotes..."
-	dvc remote add -d storage postgresql://$${POSTGRES_USER:-user}:$${POSTGRES_PASSWORD:-password}@$${POSTGRES_HOST:-localhost}:$${POSTGRES_PORT:-5432}/dvc_cache || echo "Configure storage remote"
-	dvc remote add models postgresql://$${POSTGRES_USER:-user}:$${POSTGRES_PASSWORD:-password}@$${POSTGRES_HOST:-localhost}:$${POSTGRES_PORT:-5432}/models || echo "Configure models remote"
-	dvc remote add data postgresql://$${POSTGRES_USER:-user}:$${POSTGRES_PASSWORD:-password}@$${POSTGRES_HOST:-localhost}:$${POSTGRES_PORT:-5432}/data || echo "Configure data remote"
+pipeline:
+	$(DC) up -d db mlflow
+	$(DC) run --rm --entrypoint python compute scripts/wait_for_mlflow.py
+	$(DATA_CMD)
+	$(DC) run --rm compute python -m {{project_name}}.src.data.preprocess
+	$(DC) run --rm compute python -m {{project_name}}.src.models.train
 
-# Alias for backward compatibility
-init-prod: init-prod-s3
-
-validate-config:
-	poetry run python -m {{project_name}}.configs.validate
+train:
+	$(DC) run --rm compute python -m {{project_name}}.src.models.train
 
 test:
-	poetry run pytest {{project_name}}/tests/ -v --tb=short
+	$(DC) run --rm compute pytest {{project_name}}/tests -v
 
-# Development pipeline
-pipeline: validate-config
-	poetry run dvc repro
+# API
+api:
+	$(DC) up --build api
 
-# Production pipeline
-pipeline-prod: validate-config data-pull
-	poetry run dvc repro --force
+inference:
+	curl -X POST http://localhost:8000/predict \
+		-H "Content-Type: application/json" \
+		-d '{"texts": ["this movie is great"]}'
 
-train: validate-config
-	poetry run python -m {{project_name}}.src.models.train
-
-serve:
-	poetry run uvicorn {{project_name}}.serving.api:app --reload --port 8000
-
-promote:
-	poetry run python -m promotion.gate
-
-# Data management
+# DATA / MODEL
 data-pull:
-	dvc pull {{project_name}}/data/processed || echo "No data to pull"
-
-data-push:
-	dvc push {{project_name}}/data/processed
-
-# Model management
-model-push:
-	dvc push {{project_name}}/models/artifacts
+	$(DC) run --rm compute dvc pull {{project_name}}/data/processed || true
 
 model-pull:
-	dvc pull {{project_name}}/models/artifacts
+	$(DC) run --rm compute dvc pull {{project_name}}/models/artifacts
 
-# Deployment
+model-push:
+	$(DC) run --rm compute dvc push {{project_name}}/models/artifacts
+
+# ML LIFECYCLE
+promote:
+	$(DC) run --rm compute python -m promotion.gate
+
 deploy-model: model-push
-	poetry run python -m {{project_name}}.serving.deploy
+	$(DC) run --rm compute python -m {{project_name}}.serving.deploy
 
-# Monitoring
 monitor:
-	poetry run python -m {{project_name}}.monitoring.drift
+	$(DC) run --rm compute python -m {{project_name}}.monitoring.drift
+
+# SYSTEM
+up:
+	$(DC) up -d --build
+
+down:
+	$(DC) down
+
+reset:
+	$(DC) down -v
+
+clean: reset
 
 all: setup test pipeline
-
-clean:
-	docker-compose down
-	find . -type d -name __pycache__ -exec rm -rf {} +
-	find . -type d -name .pytest_cache -exec rm -rf {} +
-	dvc gc -w

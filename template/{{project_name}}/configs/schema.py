@@ -97,7 +97,9 @@ class XGBoostConfig(StrictConfig):
 
 
 class LinearConfig(StrictConfig):
-    fit_intercept: bool
+    fit_intercept: bool = True
+    solver: Literal["lbfgs", "liblinear", "sag", "saga"] = "lbfgs"
+    max_iter: int = 200
 
 
 class ModelConfig(StrictConfig):

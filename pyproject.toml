@@ -1,15 +1,14 @@
 [project]
 name = "ai-templates"
-version = "0.1.0"
+version = "0.4.0"
 description = ""
 authors = [
     {name = "emedinac",email = "edgarmedina1801@gmail.com"}
 ]
 readme = "README.md"
-packages = [{include = "ai-templates"}]
 requires-python = ">=3.11,<3.12"
 dependencies = [
-    "mlflow (>=3.11.1,<4.0.0)",
+    "dvc (>=3.67.1,<4.0.0)",
     "pydantic (>=2.13.3,<3.0.0)",
     "pyyaml (>=6.0.3,<7.0.0)",
     "fastapi (>=0.136.1,<0.137.0)",
@@ -18,8 +17,15 @@ dependencies = [
     "datasets (>=3.0.0,<4.0.0)",
     "pandas (>=2.0.0,<3.0.0)",
     "scikit-learn (>=1.3.0,<2.0.0)",
-    "joblib (>=1.3.0,<2.0.0)"
+    "mlflow (>=3.11.1,<4.0.0)",
+    "joblib (>=1.3.0,<2.0.0)",
+    "transformers (>=5.8.0,<6.0.0)",
+    "torch (>=2.11.0,<3.0.0)",
+    "prometheus-client (>=0.25.0,<0.26.0)"
 ]
+
+[tool.poetry]
+package-mode = false
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
@@ -28,6 +34,5 @@ build-backend = "poetry.core.masonry.api"
 [dependency-groups]
 dev = [
     "pytest (>=9.0.3,<10.0.0)",
-    "dvc (>=3.67.1,<4.0.0)",
     "copier (>=9.15.0,<10.0.0)"
 ]

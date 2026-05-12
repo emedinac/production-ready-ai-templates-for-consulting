@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   tracking:
     image: ghcr.io/mlflow/mlflow:latest
@@ -8,4 +6,4 @@ services:
     volumes:
       - ./mlflow_artifacts:/mlflow
     environment:
-      - MLFLOW_BACKEND_URI=sqlite:///mlflow.db
+      - MLFLOW_BACKEND_URI=postgresql:///mlflow.db

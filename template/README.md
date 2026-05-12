@@ -1,321 +1,200 @@
-# AI Project Template
+# Production-Ready AI Project Template for Consulting
 
-A production-ready template for machine learning projects using DVC, Poetry, and modern MLOps practices.
+A prototpying-first AI delivery framework designed to accelerate new client onboarding and eliminate repeat infrastructure work.
 
-## Features
+## Executive Summary
 
-- **Data Version Control**: DVC for tracking data, models, and experiments
-- **Dependency Management**: Poetry for Python package management
-- **Containerization**: Docker Compose for local development and production deployment
-- **Experiment Tracking**: MLflow integration for model versioning and metrics
-- **Monitoring**: Prometheus and Grafana for system monitoring
-- **CI/CD**: GitHub Actions for automated testing and deployment
-- **Code Quality**: Pre-configured linting and testing setup
+Consultancies lose weeks on project setup when every new engagement rebuilds the same infrastructure. This template is built to reduce that overhead by providing a fully configured AI project scaffold with data versioning, model tracking, serving, monitoring, and deployment automation.
+
+This repository is a project template, not a one-off model. It is built to be cloned, customized with a single configuration file, and put into production quickly.
+
+## Why It Matters for Prototpying
+
+- Reduce client ramp-up from weeks to days
+- Standardize model evaluation across projects
+- Make delivery repeatable and audit-ready
+- Give consultants a proven production architecture from day one
+
+## What This Template Delivers
+
+- Cookiecutter-style project scaffold with `{{project_name}}` placeholders
+- Configurable runtime and experiment behavior from a single `params.yaml`
+- Preconfigured DVC pipeline for preprocess → train → evaluate
+- Included MLflow tracking server in Docker Compose
+- FastAPI inference service with health checks and Prometheus metrics
+- Prometheus + Grafana observability with dashboard provisioning
+- Standard pytest-based model and integration testing
+- Docker Compose development and production profiles
+- Makefile targets for setup, pipeline execution, deployment, and monitoring
+
+## Supported Use Case
+
+The reference implementation includes a text classification workflow. This is intended to illustrate a concrete, client-ready use case with a reusable pattern for ticket classification, support routing, or other text classification applications.
+
+To adapt to a new client, you typically only need to update:
+
+- `params.yaml`
+- input data under `{{project_name}}/data/`
 
 ## Quick Start
 
-### Development Setup
+### Bootstrap the Template
 
 ```bash
-# Install dependencies
 make setup
-
-# Run tests
-make test
-
-# Run the full pipeline
-make pipeline
-
-# Start development server
-make serve
 ```
 
-### Local PostgreSQL Setup (Alternative to S3)
-
-If you prefer to use PostgreSQL for local data storage instead of S3:
+### Run the Full Delivery Flow
 
 ```bash
-# Start PostgreSQL databases
-docker-compose -f docker-compose.prod.yml up -d db
-
-# Initialize DVC with PostgreSQL remotes
-make init-prod-postgres
-
-# Or manually configure:
-dvc remote add -d storage postgresql://user:password@localhost:5432/dvc_cache
-dvc remote add models postgresql://user:password@localhost:5432/models
-dvc remote add data postgresql://user:password@localhost:5432/data
-
-# Then run the pipeline
-make pipeline-prod
+make all
 ```
 
-### Production Setup
+This performs dependency installation, launches the application stack, runs tests, and executes the end-to-end pipeline.
 
-1. **Configure Environment Variables**
-   ```bash
-   cp .env.prod.example .env.prod
-   # Edit .env.prod with your production values
-   ```
+Or
+```bash
+make setup
+make pipeline
+make api
+make inference
+```
 
-2. **Choose Your Storage Backend**
+### Run the Pipeline
 
-   **Option A: S3 (Cloud Storage)**
-   ```bash
-   make init-prod-s3
+```bash
+make pipeline
+```
 
-   # Or manually configure:
-   dvc remote add -d storage s3://your-production-bucket/dvc-cache
-   dvc remote add models s3://your-models-bucket/models
-   dvc remote add data s3://your-data-bucket/data
-   ```
+### Run the API
 
-   **Option B: PostgreSQL (Local Database)**
-   ```bash
-   # Start PostgreSQL database
-   docker-compose -f docker-compose.prod.yml up -d db
+```bash
+make api
+```
 
-   # Initialize DVC with PostgreSQL remotes
-   make init-prod-postgres
+### Run Tests
 
-   # Or manually configure:
-   dvc remote add -d storage postgresql://user:password@localhost:5432/dvc_cache
-   dvc remote add models postgresql://user:password@localhost:5432/models
-   dvc remote add data postgresql://user:password@localhost:5432/data
-   ```
-
-3. **Deploy to Production**
-   ```bash
-   # Build and deploy
-   docker-compose -f docker-compose.prod.yml up -d
-
-   # Or use the Makefile target
-   make deploy-model
-   ```
+```bash
+make test
+```
 
 ## Project Structure
 
 ```
 {{project_name}}/
-├── configs/           # Configuration files
-├── data/             # Data directory (tracked by DVC)
-│   ├── raw/         # Raw input data
-│   └── processed/   # Processed data
-├── evaluation/      # Model evaluation scripts
-├── experiments/     # Experiment configurations
-├── models/          # Model artifacts and checkpoints
-├── monitoring/      # Monitoring and alerting
-├── pipelines/       # DVC pipeline helpers
-├── serving/         # Model serving API
-├── src/            # Source code
-├── tests/          # Unit and integration tests
-└── utils/          # Utility functions
+├── configs/           # Configuration loader and validation
+├── data/              # Data tracked by DVC and used by the pipeline
+│   ├── raw/           # Raw input data
+│   └── processed/     # Processed artifacts
+├── evaluation/        # Evaluation and reporting logic
+├── experiments/       # Experiment orchestration and runners
+├── models/            # Model artifacts and DVC-tracked outputs
+├── monitoring/        # Drift detection and production monitoring
+├── pipelines/         # DVC pipeline orchestration
+├── serving/           # FastAPI inference and deployment helpers
+├── src/               # Core application implementation
+├── tests/             # Unit and integration tests
+└── infra/             # Docker, monitoring, and deployment configuration
 ```
 
-## DVC Pipeline
+## Architecture Overview
 
-The project uses DVC to manage the ML pipeline with the following stages:
-
-1. **preprocess**: Data preprocessing and feature engineering
-2. **train**: Model training with hyperparameter optimization
-3. **evaluate**: Model evaluation and performance metrics
-
-### Running the Pipeline
-
-```bash
-# Development
-make pipeline
-
-# Production (with remote data)
-make pipeline-prod
-
-# Run specific stage
-poetry run python -m {{project_name}}.pipelines.dvc_pipeline run_stage preprocess
-```
-
-### Data Management
-
-```bash
-# Pull latest data from remote
-make data-pull
-
-# Push processed data to remote
-make data-push
-
-# Push trained models
-make model-push
-```
+- `docker-compose.yml`: local development stack with MLflow, PostgreSQL, compute, API, Prometheus, and Grafana
+- `docker-compose.prod.yml`: production-ready service definitions and remote-aware storage
+- `Makefile`: entrypoints for setup, pipeline execution, deployment, and monitoring
+- `dvc.yaml`: staged data pipeline definition
+- `params.yaml`: centralized configuration for model, data, and evaluation
+- `{{project_name}}/serving/api.py`: FastAPI inference service with instrumentation
 
 ## Configuration
 
-### Parameters
+### Primary configuration file
 
-Edit `params.yaml` to configure:
-- Experiment settings
-- Data source configuration
-- Model hyperparameters
-- Evaluation metrics
+`params.yaml` is the single source of truth for:
 
-### DVC Configuration
+- task type (text classification, tabular regression, etc.)
+- model architecture and hyperparameters
+- data sources and preprocessing rules
+- evaluation thresholds and metrics
+- MLflow tracking settings
 
-The `.dvc/config` file contains remote storage settings. Choose one of the following configurations:
+### Customizing for a new client
 
-**S3 Configuration (Cloud):**
-```ini
-['remote "storage"']
-    url = s3://your-production-bucket/dvc-cache
-    access_key_id = ${AWS_ACCESS_KEY_ID}
-    secret_access_key = ${AWS_SECRET_ACCESS_KEY}
-    region = us-east-1
-['remote "models"']
-    url = s3://your-models-bucket/models
-    access_key_id = ${AWS_ACCESS_KEY_ID}
-    secret_access_key = ${AWS_SECRET_ACCESS_KEY}
-    region = us-east-1
-['remote "data"']
-    url = s3://your-data-bucket/data
-    access_key_id = ${AWS_ACCESS_KEY_ID}
-    secret_access_key = ${AWS_SECRET_ACCESS_KEY}
-    region = us-east-1
-[core]
-    remote = storage
-```
+To onboard a new project, update `params.yaml` and provide the new dataset. The core pipeline and serving stack remain unchanged.
 
-**PostgreSQL Configuration (Local):**
-```ini
-['remote "storage"']
-    url = postgresql://user:password@localhost:5432/dvc_cache
-['remote "models"']
-    url = postgresql://user:password@localhost:5432/models
-['remote "data"']
-    url = postgresql://user:password@localhost:5432/data
-[core]
-    remote = storage
-```
+## Docker & Deployment
 
-## Deployment
-
-### Local Development
+### Start local development stack
 
 ```bash
 docker-compose up -d
 ```
 
-### Production Deployment
+### Start production stack
 
 ```bash
 docker-compose -f docker-compose.prod.yml up -d
 ```
 
-### API Endpoints
+### Service endpoints
 
-Once deployed, the API will be available at:
-- **API**: http://localhost:8000
-- **MLflow UI**: http://localhost:5000
-- **Grafana**: http://localhost:3000
-- **Prometheus**: http://localhost:9090
+- API: http://localhost:8000
+- MLflow UI: http://localhost:5000
+- Grafana: http://localhost:3000
+- Prometheus: http://localhost:9090
 
-## Monitoring
+## Observability
 
-### Data Drift Detection
-
-```bash
-make monitor
-```
-
-### Metrics
-
-- Model performance metrics are tracked in MLflow
-- System metrics are collected by Prometheus
-- Dashboards available in Grafana
+- MLflow captures experiment runs, parameters, metrics, and artifacts
+- Prometheus scrapes application and inference metrics
+- Grafana dashboards are shipped ready to provision from `infra/monitoring/grafana_dashboards`
 
 ## CI/CD
 
-The project includes GitHub Actions workflows for:
-- Automated testing on pull requests
-- DVC pipeline execution on main branch
-- Model deployment to production
+A GitHub Actions workflow is included for continuous validation of the DVC pipeline and project state.
 
-### Required Secrets
+The current pipeline automation covers:
 
-Set these in your GitHub repository secrets:
-- `AWS_ACCESS_KEY_ID`
-- `AWS_SECRET_ACCESS_KEY`
-- `AWS_REGION`
-- `MLFLOW_TRACKING_URI`
+- dependency installation
+- DVC pull / repro / push lifecycle
+- test execution
 
-## Development Guidelines
+## Makefile Targets
 
-### Code Quality
-
-```bash
-# Run tests
-make test
-
-# Validate configuration
-make validate-config
-
-# Check pipeline
-poetry run python -m {{project_name}}.pipelines.dvc_pipeline validate_pipeline
-```
-
-### Adding New Stages
-
-1. Add the stage to `dvc.yaml`
-2. Implement the stage logic in `src/`
-3. Update the pipeline helpers if needed
-4. Test the new stage
-
-### Model Promotion
-
-```bash
-# Promote model to production
-make promote
-```
+- `make setup`: install dependencies and bring up the stack
+- `make all`: full setup, test, and pipeline execution
+- `make pipeline`: execute the preprocess + train flow
+- `make test`: run pytest over the project tests
+- `make api`: launch the FastAPI inference service
+- `make monitor`: run drift detection and monitoring checks
+- `make promote`: execute model promotion logic
+- `make deploy-model`: push model artifacts and deploy the serving package
 
 ## Troubleshooting
 
-### Common Issues
+### Common issues
 
-1. **DVC remote connection failed (S3)**
-   - Check AWS credentials in `.env.prod`
-   - Verify S3 bucket permissions
-   - Ensure AWS region is correct
+- DVC remote connectivity
+- MLflow backend availability
+- PostgreSQL startup and database initialization
+- API health endpoint failures
 
-2. **DVC remote connection failed (PostgreSQL)**
-   - Verify PostgreSQL is running: `docker-compose -f docker-compose.prod.yml ps db`
-   - Check database connection: `psql postgresql://user:password@localhost:5432/dvc_cache -c "SELECT 1"`
-   - Ensure databases are created: check `scripts/init-dvc-databases.sql`
+### Useful commands
 
-3. **Pipeline fails**
-   - Check `dvc status` for stage status
-   - Review logs in `dvc status --show-json`
-   - Verify dependencies exist in configured remote
+```bash
+docker-compose -f docker-compose.prod.yml ps db
+psql postgresql://user:password@localhost:5432/dvc_cache -c "SELECT 1"
+dvc status --show-json
+```
 
-4. **Model deployment fails**
-   - Verify model artifacts exist in remote storage
-   - Check API health endpoint
-   - Ensure correct MODEL_VERSION in environment
+## Business Value
 
-5. **PostgreSQL connection issues**
-   - Check database logs: `docker-compose -f docker-compose.prod.yml logs db`
-   - Verify connection string format
-   - Ensure PostgreSQL port (5432) is accessible
+This template is explicitly designed for prototpying teams that need to deliver AI projects quickly, consistently, and with minimal reprovisioning.
 
-### Logs
+The key value proposition is:
 
-- Application logs: Check Docker container logs
-- DVC logs: `dvc status`
-- MLflow logs: Available in MLflow UI
+- faster client onboarding
+- repeatable delivery patterns
+- standardized model evaluation
+- ready-to-use production observability
 
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Run tests and validation
-5. Submit a pull request
-
-## License
-
-This project is licensed under the MIT License.
