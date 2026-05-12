@@ -38,7 +38,7 @@ def _apply_text_preprocessing(df: pd.DataFrame, text_cfg):
 def preprocess() -> Path:
     config = load_config()
 
-    repo_root = Path(__file__).resolve().parents[3]
+    repo_root = Path(__file__).resolve().parents[4]
     output_dir = _resolve_path(repo_root, config.data.processed_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
