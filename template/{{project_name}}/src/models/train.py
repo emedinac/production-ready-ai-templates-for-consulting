@@ -38,7 +38,8 @@ def train():
     experiment_name = config.experiment.name or "default"
     setup_mlflow(experiment_name)
 
-    repo_root = Path(__file__).resolve().parents[3]
+    project_name = __name__.split(".")[0]
+    repo_root = Path(__file__).resolve().parents[4]
     processed_dir = resolve_path(repo_root, config.data.processed_dir)
 
     train_df = pd.read_csv(processed_dir / "train.csv")
@@ -75,8 +76,8 @@ def train():
     print(classification_report(y_val, y_pred))
 
     # Save metrics locally for DVC
-    repo_root = Path(__file__).resolve().parents[3]
-    metrics_path = repo_root / "models" / "metrics.json"
+    repo_root = Path(__file__).resolve().parents[4]
+    metrics_path = repo_root / project_name / "models" / "metrics.json"
     metrics_path.parent.mkdir(parents=True, exist_ok=True)
     with open(metrics_path, "w") as f:
         json.dump(metrics, f)
@@ -119,13 +120,13 @@ def train():
             )
 
             # Save model locally for DVC
-            artifacts_dir = repo_root / "models" / "artifacts"
+            artifacts_dir = repo_root / project_name / "models" / "artifacts"
             artifacts_dir.mkdir(parents=True, exist_ok=True)
             joblib.dump(serving_model, artifacts_dir / "model.pkl")
 
         # TRANSFORMER MODEL
         elif bundle.type == "transformer":
-            artifacts_dir = repo_root / "models" / "artifacts"
+            artifacts_dir = repo_root / project_name / "models" / "artifacts"
             artifacts_dir.mkdir(parents=True, exist_ok=True)
 
             model_path = artifacts_dir / "model"
