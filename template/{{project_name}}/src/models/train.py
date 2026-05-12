@@ -39,7 +39,7 @@ def train():
     setup_mlflow(experiment_name)
 
     project_name = __name__.split(".")[0]
-    repo_root = Path(__file__).resolve().parents[4]
+    repo_root = Path(__file__).resolve().parents[3]
     processed_dir = resolve_path(repo_root, config.data.processed_dir)
 
     train_df = pd.read_csv(processed_dir / "train.csv")
@@ -76,7 +76,7 @@ def train():
     print(classification_report(y_val, y_pred))
 
     # Save metrics locally for DVC
-    repo_root = Path(__file__).resolve().parents[4]
+    repo_root = Path(__file__).resolve().parents[3]
     metrics_path = repo_root / project_name / "models" / "metrics.json"
     metrics_path.parent.mkdir(parents=True, exist_ok=True)
     with open(metrics_path, "w") as f:
