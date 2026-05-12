@@ -4,6 +4,8 @@ import pandas as pd
 import mlflow
 import mlflow.sklearn
 import mlflow.pyfunc
+import json
+import joblib
 
 from mlflow.models.signature import infer_signature
 from tempfile import TemporaryDirectory
@@ -72,6 +74,13 @@ def train():
     print(confusion_matrix(y_val, y_pred))
     print(classification_report(y_val, y_pred))
 
+    # Save metrics locally for DVC
+    repo_root = Path(__file__).resolve().parents[3]
+    metrics_path = repo_root / "models" / "metrics.json"
+    metrics_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(metrics_path, "w") as f:
+        json.dump(metrics, f)
+
     artifact_path = "model"
 
     # MLflow RUN
@@ -109,28 +118,33 @@ def train():
                 input_example=serving_input.head(5),
             )
 
+            # Save model locally for DVC
+            artifacts_dir = repo_root / "models" / "artifacts"
+            artifacts_dir.mkdir(parents=True, exist_ok=True)
+            joblib.dump(serving_model, artifacts_dir / "model.pkl")
+
         # TRANSFORMER MODEL
         elif bundle.type == "transformer":
-            with TemporaryDirectory() as tmp:
-                tmp = Path(tmp)
+            artifacts_dir = repo_root / "models" / "artifacts"
+            artifacts_dir.mkdir(parents=True, exist_ok=True)
 
-                model_path = tmp / "model"
-                tokenizer_path = tmp / "tokenizer"
+            model_path = artifacts_dir / "model"
+            tokenizer_path = artifacts_dir / "tokenizer"
 
-                model.save_pretrained(model_path)
+            model.save_pretrained(model_path)
 
-                if bundle.tokenizer:
-                    bundle.tokenizer.save_pretrained(tokenizer_path)
+            if bundle.tokenizer:
+                bundle.tokenizer.save_pretrained(tokenizer_path)
 
-                mlflow.pyfunc.log_model(
-                    artifact_path=artifact_path,
-                    python_model=TransformerWrapper(),
-                    artifacts={
-                        "model_path": str(model_path),
-                        "tokenizer_path": str(tokenizer_path),
-                    },
-                    signature=signature,
-                )
+            mlflow.pyfunc.log_model(
+                artifact_path=artifact_path,
+                python_model=TransformerWrapper(),
+                artifacts={
+                    "model_path": str(model_path),
+                    "tokenizer_path": str(tokenizer_path),
+                },
+                signature=signature,
+            )
         else:
             raise ValueError(f"Unsupported model type: {bundle.type}")
 
